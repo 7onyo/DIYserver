@@ -70,3 +70,25 @@ The system was installed using a **minimal setup with no desktop environment**, 
 - avoiding a GUI saves **RAM and CPU resources**
 
 ---
+
+# Network
+
+In most home networks, devices receive their **local IP address dynamically** through DHCP.  
+This means the router automatically assigns an available IP address to each device when it connects to the network.
+
+In order to access the server or any of its services, you need to know its local IP address.  
+This can be retrieved either from the server itself or from the router’s admin panel, which can be annoying.
+
+### Solution: DHCP Reservation (Static Local IP)
+
+I chose to create a **DHCP reservation from the router**, which always assigns the **same IP address to each server based on its MAC address**.
+
+> Note: It is also possible to set a static IP manually on the server itself, but using the router simplifies management.
+
+Router configuration example:
+
+![DHCP Reservation Example](photos/DHCP_reservation.jpg)
+
+In my setup, the router is configured to always assign the same IP address for each server.
+
+---
