@@ -91,4 +91,47 @@ Router configuration example:
 
 In my setup, the router is configured to always assign the same IP address for each server.
 
+### Network Schema
+
+For now, I only have a **single Wireless Router** handling all roles.
+> **Note:** In the future, I plan to separate these functions into specialized devices:
+>
+> - **Gigabit switch** for wired connections  
+> - **Custom router** running OPNsense or pfSense 
+> - **Access Point** for WiFi
+Router and server setup:
+
+<!-- ![Servers and Router](photos/servers_router.png) -->
+
+Below is an **ASCII diagram** illustrating the layout of the whole network:
+
+```
+               ISP
+                │
+               WAN
+        ┌─────────────────────────────────┐
+        │         Wireless Router         │
+        │---------------------------------│
+        │ WAN                             │
+        │ LAN0                            │
+        │ LAN1                            │
+        │ LAN2                            │
+        │ WiFi                            │
+        └─────────────────────────────────┘
+          LAN0   LAN1  LAN2    WiFi
+           │      │      │      │
+           │      │      │      ├─device0
+           │      │      │      ├─device1
+           │      │      │      ├─device2    
+           │      │      │      ├─device3    
+           │      │      │      └─deviceN    
+           │      │      │          
+           │      │      │
+           │      │      └── My Laptop
+           │      │
+           │      └── HP Server
+           │
+           └── ThinkPad Server
+```
+
 ---
