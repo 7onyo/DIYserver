@@ -16,6 +16,8 @@
   - [Battery Configuration](#battery-configuration)
   - [Wake-on-LAN (WoL)](#wake-on-lan-wol)
 
+- [Server Setup & Services](#server-setup--services)
+
 # DIY Home Server
 
 This repository documents my journey of building and configuring a DIY home server.
@@ -289,5 +291,17 @@ wakeonlan <MAC_ADDRESS>
 Reference:
 
 https://www.thelinuxvault.net/blog/how-to-wake-on-lan-supported-host-over-the-network-using-linux/
+
+---
+
+# Server Setup & Services
+
+This section covers the core services that transform the machine into a functional home server.
+
+These services provide:
+
+- **Remote management** (SSH)
+- **Network storage** (Samba)
+- **Application hosting** (Docker)
 
 ---
