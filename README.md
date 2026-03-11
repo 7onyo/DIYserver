@@ -119,7 +119,7 @@ For now, I only have a **single Wireless Router** handling all roles.
 > - **Access Point** for WiFi
 Router and server setup:
 
-<!-- ![Servers and Router](photos/servers_router.png) -->
+![Servers and Router](photos/setup_photo.jpg)
 
 Below is an **ASCII diagram** illustrating the layout of the whole network:
 
