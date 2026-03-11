@@ -305,3 +305,38 @@ These services provide:
 - **Application hosting** (Docker)
 
 ---
+
+## SSH — Remote Server Access
+
+SSH allows the server to be managed remotely from another machine through the terminal.
+
+### Installation
+
+Install the SSH server:
+
+```bash
+sudo apt install openssh-server
+```
+
+Enable and start the service:
+
+```bash
+sudo systemctl enable ssh
+sudo systemctl start ssh
+```
+
+### Connecting to the Server
+
+From another machine on the network, connect using the following command.  
+In my case:
+
+```bash
+ssh dev@192.168.0.109
+```
+
+Where:
+
+- `dev` is the username on the server  
+- `192.168.0.109` is the server's local IP address
+
+---
