@@ -17,6 +17,9 @@
   - [Wake-on-LAN (WoL)](#wake-on-lan-wol)
 
 - [Server Setup & Services](#server-setup--services)
+  - [Common Setup](#common-setup)
+    - [SSH — Remote Server Access](#ssh--remote-server-access)
+    - [System Monitoring Tools](#system-monitoring-tools)
 
 # DIY Home Server
 
@@ -31,7 +34,7 @@ Later I plan to add explanations, screenshots, and short videos.
 
 # Hardware
 
-Currently using two machines as part of this DIY server setup.
+Currently using two machines as part of this DIY server setup. The system is built around a **primary server** and a **secondary backup server**.
 
 ## Lenovo ThinkPad T430 (Main Server)
 
@@ -43,9 +46,9 @@ Currently using two machines as part of this DIY server setup.
 - Storage: 500 GB SATA III SSD  
 - 1 Gbps NIC with support for Wake on Lan
 
-This machine acts as the **main server**, as it has more reliable performance and significantly more storage available.
+This machine acts as the **main server**, as it has better performance and significantly more storage available. It hosts the primary services of the system and runs most applications through Docker containers.
 
-## HP ProBook 455 G2 (Testing Machine)
+## HP ProBook 455 G2 (Backup Machine)
 
 ![HP ProBook 455 G2 - Photo 1](photos/HP_photo_1.jpg)
 ![HP ProBook 455 G2 - Photo 2](photos/HP_photo_2.jpg)
@@ -55,11 +58,7 @@ This machine acts as the **main server**, as it has more reliable performance an
 - Storage: 120 GB SATA III SSD  
 - 1 Gbps NIC with support for Wake on Lan
 
-The **HP ProBook struggles with performance and has limited storage**, so it is mainly used as a **testing environment**.  
-I use it to experiment with configurations, services, and setups before applying them to the ThinkPad server, which helps avoid breaking the main system and having to reconfigure it.
-
-> **Note:** From this point onward, all setup and configuration steps described in this documentation refer **only to the ThinkPad T430**, which serves as the main server.
-
+This machine acts as a **backup server**. The **HP ProBook struggles with performance and has limited storage**, so it is mainly used for storing **backups of important data**. 
 ---
 
 # Operating System
@@ -296,21 +295,32 @@ https://www.thelinuxvault.net/blog/how-to-wake-on-lan-supported-host-over-the-ne
 
 # Server Setup & Services
 
-This section covers the core services that transform the machine into a functional home server.
+This section covers the core services and configurations that transform the machines into a functional servers.
 
-These services provide:
+The setup is divided into three parts:
 
-- **Remote management** (SSH)
-- **Network storage** (Samba)
-- **Application hosting** (Docker)
+- **Common setup** applied to both servers
+- **ThinkPad server setup** for the main server
+- **HP server setup** for the backup server
 
 ---
 
-## SSH — Remote Server Access
+## Common Setup
+
+The following configurations are applied to **both servers**.
+
+They provide:
+
+- **Remote management** (SSH)
+- **Basic system monitoring tools**
+
+---
+
+### SSH — Remote Server Access
 
 SSH allows the server to be managed remotely from another machine through the terminal.
 
-### Installation
+#### Installation
 
 Install the SSH server:
 
@@ -325,7 +335,7 @@ sudo systemctl enable ssh
 sudo systemctl start ssh
 ```
 
-### Connecting to the Server
+#### Connecting to the Server
 
 From another machine on the network, connect using the following command.  
 In my case:
@@ -338,5 +348,53 @@ Where:
 
 - `dev` is the username on the server  
 - `192.168.0.109` is the server's local IP address
+
+---
+
+### System Monitoring Tools
+
+Some lightweight tools are installed to quickly inspect system information and resource usage.
+
+#### fastfetch
+
+Displays system information.
+
+```bash
+sudo apt install fastfetch
+```
+
+Run:
+
+```bash
+fastfetch
+```
+
+#### btop
+
+Interactive resource monitor.
+
+```bash
+sudo apt install btop
+```
+
+Run:
+
+```bash
+btop
+```
+
+#### htop
+
+Alternative terminal system monitor.
+
+```bash
+sudo apt install htop
+```
+
+Run:
+
+```bash
+htop
+```
 
 ---
