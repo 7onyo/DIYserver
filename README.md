@@ -3,7 +3,7 @@
 - [DIY Home Server](#diy-home-server)
 - [Hardware](#hardware)
   - [Lenovo ThinkPad T430 (Main Server)](#lenovo-thinkpad-t430-main-server)
-  - [HP ProBook 455 G2 (Testing Machine)](#hp-probook-455-g2-testing-machine)
+  - [HP ProBook 455 G2 (Testing Machine)](#hp-probook-455-g2-backup-server)
 - [Operating System](#operating-system)
   - [Initial Plan](#initial-plan)
   - [Final Approach](#final-approach)
@@ -48,7 +48,7 @@ Currently using two machines as part of this DIY server setup. The system is bui
 
 This machine acts as the **main server**, as it has better performance and significantly more storage available. It hosts the primary services of the system and runs most applications through Docker containers.
 
-## HP ProBook 455 G2 (Backup Machine)
+## HP ProBook 455 G2 (Backup Server)
 
 ![HP ProBook 455 G2 - Photo 1](photos/HP_photo_1.jpg)
 ![HP ProBook 455 G2 - Photo 2](photos/HP_photo_2.jpg)
@@ -348,6 +348,14 @@ Where:
 
 - `dev` is the username on the server  
 - `192.168.0.109` is the server's local IP address
+
+For **Linux and Windows**, I usually connect directly from the **terminal** using the command shown above.
+
+For **Android**, I use the **Termius** SSH client to connect to the servers.
+
+| | |
+|---|---|
+| ![Termius Home Page](photos/termius1.jpg) | ![Termius session](photos/termius2.jpg) |
 
 ---
 
