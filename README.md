@@ -20,6 +20,14 @@
   - [Common Setup](#common-setup)
     - [SSH — Remote Server Access](#ssh--remote-server-access)
     - [System Monitoring Tools](#system-monitoring-tools)
+  - [ThinkPad Server Setup (Main Server)](#thinkpad-server-setup-main-server)
+      - [Storage Layout](#storage-layout)
+      - [Storage Permissions](#storage-permissions)
+      - [Samba — Network File Sharing (NAS)](#samba--network-file-sharing-nas)
+        <!-- - [Installation](#installation)
+        - [User setup](#user-setup)
+        - [Configuration](#configuration)
+        - [Configuration Explanation](#configuration-explanation) -->
 
 # DIY Home Server
 
@@ -406,3 +414,212 @@ htop
 ```
 
 ---
+
+## ThinkPad Server Setup (Main Server)
+
+The **ThinkPad T430** acts as the **main server** in this setup.
+
+It is responsible for:
+
+- running **Docker services**
+- providing **network storage (NAS)** via Samba
+- storing application data and media
+
+---
+
+### Storage Layout
+
+Before setting everything up, I defined a directory structure to clearly separate:
+
+- **Docker configurations**
+- **shared data (NAS)**
+- **service-specific data**
+
+Planned layout:
+
+```
+/
+├── srv
+│   └── docker
+│       └── navidrome
+│           └── docker-compose.yml
+│
+└── data
+    ├── shares
+    │   └── media
+    │       └── music
+    │
+    └── services
+        └── navidrome
+            ├── navidrome.db
+            └── cache
+```
+
+This structure keeps:
+
+- configs in `/srv/docker`
+- user-accessible files in `/data/shares`
+- service data isolated in `/data/services`
+
+---
+
+### Storage Permissions
+
+To keep permissions clean and manageable, I created a dedicated **group for storage access** and configured a shared directory.
+
+#### Create storage group and configure permissions
+
+```bash
+sudo groupadd storage
+sudo usermod -aG storage dev
+sudo chown -R root:storage /data
+sudo chmod -R 2775 /data
+```
+
+Explanation:
+
+- `storage` → shared group for file access  
+- `dev` → added to the group  
+- `/data` → main shared directory  
+- `2775` → ensures new files inherit the group
+
+---
+
+### Samba — Network File Sharing (NAS)
+
+Samba is used to expose the `/data` directory to other devices on the network.
+
+I chose **Samba (SMB)** instead of **NFS** because I access the server from multiple operating systems:
+
+- **Linux**
+- **Windows**
+- **Android**
+
+SMB is natively supported on all of these platforms, making it a more flexible choice.  
+NFS is more common in Linux-only environments, but requires additional setup or third-party tools on Windows and Android.
+
+#### Installation
+
+```bash
+sudo apt update
+sudo apt install samba
+```
+
+Enable and start the service:
+
+```bash
+sudo systemctl enable smbd
+sudo systemctl start smbd
+```
+
+Check status:
+
+```bash
+sudo systemctl status smbd
+```
+
+---
+
+#### User setup
+
+Enable Samba access for the user:
+
+```bash
+sudo smbpasswd -e dev
+```
+
+---
+
+#### Configuration
+
+Edit the Samba configuration file:
+
+```bash
+sudo nano /etc/samba/smb.conf
+```
+
+Add the following:
+
+```
+[global]
+server string = DebiServ
+workgroup = WORKGROUP
+security = user
+map to guest = Bad User
+
+[data]
+path = /data
+force user = dev
+force group = storage
+create mask = 0664
+force create mode = 0664
+directory mask = 0775
+force directory mode = 0775
+browseable = yes
+writable = yes
+guest ok = no
+read only = no
+```
+
+
+---
+
+#### Configuration Explanation
+
+- `[global]` → general server settings  
+- `server string` → server name shown on the network  
+- `workgroup` → Windows workgroup (default: WORKGROUP)  
+- `security = user` → requires authentication  
+- `map to guest = Bad User` → unknown users are treated as guests  
+
+---
+
+- `[data]` → shared folder definition  
+- `path = /data` → directory being shared  
+- `force user / group` → ensures consistent ownership of files  
+- `create mask = 0664` → file permissions (rw-rw-r--)  
+- `directory mask = 0775` → directory permissions (rwxrwxr-x)  
+- `browseable = yes` → visible on the network  
+- `writable = yes` → allows writing  
+- `guest ok = no` → disables anonymous access  
+- `read only = no` → allows modifications  
+
+---
+
+> **Note:** I recommend creating the Samba configuration from scratch instead of modifying the default file.  
+> This helps keep the configuration clean and avoids unnecessary or confusing defaults.
+>
+> You can keep the original file as a reference by renaming it:
+>
+> ```bash
+> sudo mv /etc/samba/smb.conf /etc/samba/smb.conf.old
+> ```
+>
+> Then create a new configuration file:
+>
+> ```bash
+> sudo nano /etc/samba/smb.conf
+> ```
+
+---
+
+Apply changes:
+
+```bash
+sudo systemctl restart smbd
+```
+
+---
+
+<!-- #### Accessing the NAS from different devices
+
+**Linux**
+![Linux NAS Access](photos/linux_nas.jpg)
+
+**Windows**
+![Windows NAS Access](photos/windows_nas.jpg)
+
+**Android**
+![Android NAS Access](photos/android_nas.jpg)
+
+--- -->
