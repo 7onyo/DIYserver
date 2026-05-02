@@ -24,6 +24,7 @@
       - [Storage Layout](#storage-layout)
       - [Storage Permissions](#storage-permissions)
       - [Samba — Network File Sharing (NAS)](#samba--network-file-sharing-nas)
+      - [Navidrome — Self-Hosted Music Streaming](#navidrome--self-hosted-music-streaming)
         <!-- - [Installation](#installation)
         - [User setup](#user-setup)
         - [Configuration](#configuration)
@@ -620,6 +621,246 @@ sudo systemctl restart smbd
 ![Windows NAS Access](photos/sambaWindows.png)
 
 **Android**
-![Android NAS Access](photos/sambaAndroid.jpg)
+<p align="center">
+  <img src="photos/sambaAndroid.jpg">
+</p>
 
 --- 
+
+### Navidrome — Self-Hosted Music Streaming
+
+**Navidrome** is a lightweight self-hosted music server and web-based player.
+
+It allows streaming your personal music library from:
+
+- web browser
+- Android apps
+- Subsonic-compatible clients
+- other devices on the network
+
+Official documentation:
+
+https://www.navidrome.org/docs/installation/docker/
+
+---
+
+#### My Music Library
+
+My personal music collection is stored locally and served through Navidrome.
+
+Library details:
+
+- around **1100 songs**
+- approximately **35 GB**
+- all files in **FLAC** format
+- organized into folders representing playlists
+
+I originally kept most of my music on **Spotify**.  
+Later, I transferred the library to **Deezer**, then used **Deemix** to download and preserve the collection locally in FLAC quality.
+
+This gives me:
+
+- full ownership of my library
+- offline access
+- no subscription dependency
+- higher audio quality
+- compatibility with self-hosted streaming
+
+![My Music](photos/myMusic.png)
+
+---
+
+#### Directory Location
+
+Docker project files are stored in:
+
+```bash
+/srv/docker/navidrome
+```
+
+---
+
+#### Docker Compose Configuration
+
+Create:
+
+```bash
+sudo nano /srv/docker/navidrome/docker-compose.yml
+```
+
+Add:
+
+```yaml
+services:
+  navidrome:
+    image: deluan/navidrome:latest
+    user: 1000:1000
+    ports:
+      - "4533:4533"
+    restart: unless-stopped
+    environment:
+      ND_LOGLEVEL: info
+    volumes:
+      - "/data/services/navidrome/:/data"
+      - "/data/shares/media/music/:/music:ro"
+```
+
+---
+
+#### Volume Explanation
+
+```bash
+/data/services/navidrome/
+```
+
+Used for:
+
+- application data
+- database
+- cache
+- metadata
+
+This folder is also accessible through Samba for easier management.
+
+---
+
+```bash
+/data/shares/media/music/
+```
+
+Used as the main music library location.
+
+This is where I store my music files.
+
+It is mounted as:
+
+```bash
+/music:ro
+```
+
+Meaning:
+
+- read-only for the container
+- protects music files from accidental modification
+
+---
+
+#### Starting the Container
+
+From the project directory:
+
+```bash
+cd /srv/docker/navidrome
+docker compose up -d
+```
+
+---
+
+#### Accessing Navidrome
+
+Open in browser:
+
+```text
+http://SERVER_IP:4533
+```
+
+Example:
+
+```text
+http://192.168.0.108:4533
+```
+
+---
+
+#### Clients
+
+I currently use the following clients to access Navidrome.
+
+##### PC / Linux / Windows
+
+- Web browser
+- SubTUI (Subsonic-compatible CLI client)
+
+
+![Navidrome in Browser](photos/navidromeBrowser.png)
+![SubTUI](photos/subTUI.png)
+
+
+---
+
+##### Android
+
+- **Symfonium** *(paid one-time purchase, around 25 RON)*
+
+> Note: There are multiple options for clients compatible with Navidrome: https://www.navidrome.org/apps/
+
+<p align="center">
+  <img src="photos/symfonium.jpg">
+</p>
+---
+
+#### Playlist Import Script
+
+My music library is organized in folders, where each folder represents a playlist.
+
+Navidrome recognizes standard playlist files such as `.m3u`, so I created a small script to automatically generate playlist files from those folders.
+
+Create:
+
+```bash
+nano importInNavidrome.sh
+```
+
+Add:
+
+```bash
+#!/bin/bash
+cd /data/shares/media/music/ || exit 1
+
+for dir in */; do
+    find "$dir" -type f -name "*.flac" | sort > "${dir%/}.m3u"
+done
+```
+
+Make executable:
+
+```bash
+chmod +x importInNavidrome.sh
+```
+
+Run:
+
+```bash
+./importInNavidrome.sh
+```
+
+---
+
+#### How It Works
+
+Example structure before running:
+
+```text
+/music/playlists/
+├── Good Shit!/
+├── Pop/
+└── Killing the Classics/
+```
+
+After running the script:
+
+```text
+/music/playlists/
+├── Good Shit!/
+├── Good Shit!.m3u
+├── Pop/
+├── Pop.m3u
+├── Killing the Classics/
+└── Killing the Classics.m3u
+```
+
+Each generated `.m3u` file contains the `.flac` tracks found inside the matching folder.
+
+This allows Navidrome to import folder-based playlists automatically.
+
+---
