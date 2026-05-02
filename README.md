@@ -611,15 +611,15 @@ sudo systemctl restart smbd
 
 ---
 
-<!-- #### Accessing the NAS from different devices
+ #### Accessing the NAS from different devices
 
 **Linux**
-![Linux NAS Access](photos/linux_nas.jpg)
+![Linux NAS Access](photos/sambaLinux.png)
 
 **Windows**
-![Windows NAS Access](photos/windows_nas.jpg)
+![Windows NAS Access](photos/sambaWindows.png)
 
 **Android**
-![Android NAS Access](photos/android_nas.jpg)
+![Android NAS Access](photos/sambaAndroid.jpg)
 
---- -->
+--- 
