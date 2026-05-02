@@ -3,7 +3,7 @@
 - [DIY Home Server](#diy-home-server)
 - [Hardware](#hardware)
   - [Lenovo ThinkPad T430 (Main Server)](#lenovo-thinkpad-t430-main-server)
-  - [HP ProBook 455 G2 (Testing Machine)](#hp-probook-455-g2-backup-server)
+  - [HP ProBook 455 G2 (Backup Server)](#hp-probook-455-g2-backup-server)
 - [Operating System](#operating-system)
   - [Initial Plan](#initial-plan)
   - [Final Approach](#final-approach)
