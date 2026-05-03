@@ -941,7 +941,7 @@ sudo nano /etc/systemd/resolved.conf
 
 Example configuration:
 
-![resolved.conf Configuration](photos/)
+![resolved.conf Configuration](photos/systemdResolved.png)
 
 Set:
 
