@@ -1,25 +1,45 @@
 # Table of Contents
 
 - [DIY Home Server](#diy-home-server)
+
 - [Hardware](#hardware)
   - [Lenovo ThinkPad T430 (Main Server)](#lenovo-thinkpad-t430-main-server)
   - [HP ProBook 455 G2 (Backup Server)](#hp-probook-455-g2-backup-server)
+
 - [Operating System](#operating-system)
   - [Initial Plan](#initial-plan)
   - [Final Approach](#final-approach)
+
 - [Network](#network)
   - [Solution: DHCP Reservation (Static Local IP)](#solution-dhcp-reservation-static-local-ip)
   - [Network Schema](#network-schema)
+
 - [Laptop Power Configuration](#laptop-power-configuration)
   - [Lid Configuration](#lid-configuration)
   - [Disable Sleep / Suspend](#disable-sleep--suspend)
   - [Battery Configuration](#battery-configuration)
   - [Wake-on-LAN (WoL)](#wake-on-lan-wol)
 
+- [Remote Access - Wireguard VPN](#remote-access---wireguard-vpn)
+  - [Why I Chose This Option](#why-i-chose-this-option)
+  - [Key Generation](#key-generation)
+  - [VPS Relay Server](#vps-relay-server)
+  - [Secure SSH Access to VPS](#secure-ssh-access-to-vps)
+  - [Enable IP Forwarding (VPS)](#enable-ip-forwarding-vps)
+  - [Firewall Setup (UFW)](#firewall-setup-ufw)
+  - [VPS WireGuard Configuration](#vps-wireguard-configuration)
+  - [Home Server Peer Configuration](#home-server-peer-configuration)
+  - [Client Configuration-laptop-phone](#client-configuration-laptop--phone)
+  - [Split Tunnel Behavior](#split-tunnel-behavior)
+  - [Testing Connectivity](#testing-connectivity)
+
+
+
 - [Server Setup & Services](#server-setup--services)
   - [Common Setup](#common-setup)
     - [SSH - Remote Server Access](#ssh---remote-server-access)
     - [System Monitoring Tools](#system-monitoring-tools)
+
   - [ThinkPad Server Setup (Main Server)](#thinkpad-server-setup-main-server)
       - [Storage Layout](#storage-layout)
       - [Storage Permissions](#storage-permissions)
@@ -163,8 +183,10 @@ Below is an **ASCII diagram** illustrating the layout of the whole network:
            │
            └── ThinkPad Server
 ```
-
 ---
+
+<br>
+<br>
 
 # Laptop Power Configuration
 
@@ -301,6 +323,363 @@ wakeonlan <MAC_ADDRESS>
 Reference:
 
 https://www.thelinuxvault.net/blog/how-to-wake-on-lan-supported-host-over-the-network-using-linux/
+
+<br>
+<br>
+
+---
+
+# Remote Access - Wireguard VPN
+<!-- ````markdown id="vpsrelay01" -->
+
+Since my home server is located on a residential connection, direct remote access doesn't work. 
+
+To solve this, I built a **private WireGuard relay setup** using a VPS with a public IPv4 address.
+
+This creates a secure path to access my home server from anywhere without exposing services directly to the public internet.
+
+---
+
+## Why I Chose This Option
+
+This solution fit my requirements best for several reasons:
+
+- my home network is behind **CGNAT**, so I do not have a true public IPv4 address
+- my ISP does **not provide IPv6**
+- I did not want to rely on commercial tunneling solutions such as **Cloudflare Tunnel** or **Tailscale**
+- I did not want to expose ports/services directly to the internet
+- I wanted a **private, self-managed, secure** solution
+
+---
+
+## Network Flow
+
+```text
+Laptop / Phone
+      │
+ WireGuard Tunnel
+      │
+ Public VPS Relay
+      │
+ WireGuard Tunnel
+      │
+ ThinkPad Home Server
+````
+
+All traffic between devices is encrypted.
+
+Only authorized peers with valid keys can connect.
+
+---
+
+## Key Generation
+
+I generated all WireGuard keypairs on one trusted device, then securely copied each key to its destination device.
+
+
+
+![WireGuard Keys](photos/wgKeys.png)
+
+Generate keys:
+
+```bash
+# Generate VPS keys
+wg genkey | tee vps_private.key | wg pubkey > vps_public.key
+
+# Generate Home Server keys
+wg genkey | tee home_private.key | wg pubkey > home_public.key
+
+# Generate Remote Device 1 keys
+wg genkey | tee device_private.key | wg pubkey > device_public.key
+
+# Generate Remote Device 2 keys
+wg genkey | tee mobile_private.key | wg pubkey > mobile_public.key
+```
+
+---
+
+## VPS Relay Server
+
+For this setup I used a **Hetzner VPS** because it offers excellent price/performance.
+
+> Note: #NotAnAdd
+
+Specs:
+
+* 2 vCPU
+* 4 GB RAM
+* 40 GB SSD
+* 1 Public IPv4
+* ~5 EUR/month
+
+I selected the location closest to me for lower latency.
+
+Operating system:
+
+* Debian
+
+
+
+![Hetzner VPS](photos/hetzner.png)
+
+---
+
+## Secure SSH Access to VPS
+
+Generate SSH key from your device:
+
+```bash
+ssh-keygen -t ed25519 -C "email@something.com"
+```
+
+Upload the public key during VPS deployment.
+
+Then harden SSH:
+
+```bash
+sudo nano /etc/ssh/sshd_config
+```
+
+Set:
+
+```text
+PasswordAuthentication no
+PubkeyAuthentication yes
+PermitEmptyPasswords no
+```
+
+Restart SSH:
+
+```bash
+sudo systemctl restart ssh
+```
+
+This allows login only with a valid SSH key, which is significantly safer than password authentication.
+
+---
+
+## Enable IP Forwarding (VPS)
+
+```bash
+echo "net.ipv4.ip_forward=1" | sudo tee -a /etc/sysctl.conf
+sudo sysctl -p
+```
+
+---
+
+## Firewall Setup (UFW)
+
+```bash
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+
+sudo ufw allow OpenSSH
+sudo ufw allow 51820/udp
+
+sudo ufw enable
+```
+
+---
+
+## VPS WireGuard Configuration
+
+File:
+
+```bash
+/etc/wireguard/wg0.conf
+```
+
+```ini
+[Interface]
+Address = 10.0.0.1/24
+ListenPort = 51820
+PrivateKey = <INSERT_VPS_PRIVATE_KEY>
+
+# Peer: Home Server
+[Peer]
+PublicKey = <INSERT_HOME_SERVER_PUBLIC_KEY>
+AllowedIPs = 10.0.0.2/32
+
+# Peer: Remote Device1
+[Peer]
+PublicKey = <INSERT_REMOTE_DEVICE_PUBLIC_KEY>
+AllowedIPs = 10.0.0.3/32
+
+# Peer: Remote Device2
+[Peer]
+PublicKey = <INSERT_REMOTE_DEVICE_PUBLIC_KEY>
+AllowedIPs = 10.0.0.4/32
+```
+
+Start:
+
+```bash
+sudo wg-quick up wg0
+sudo systemctl enable wg-quick@wg0
+```
+
+---
+
+## Home Server Peer Configuration
+
+File:
+
+```bash
+/etc/wireguard/wg0.conf
+```
+
+```ini
+[Interface]
+Address = 10.0.0.2/24
+PrivateKey = <INSERT_HOME_SERVER_PRIVATE_KEY>
+
+[Peer]
+PublicKey = <INSERT_VPS_PUBLIC_KEY>
+Endpoint = <VPS_PUBLIC_IP>:51820
+AllowedIPs = 10.0.0.0/24
+PersistentKeepalive = 25
+```
+
+Why `PersistentKeepalive = 25` matters:
+
+Because the server is behind CGNAT, it must maintain an outbound tunnel so the VPS can always reach it.
+
+Start:
+
+```bash
+sudo wg-quick up wg0
+sudo systemctl enable wg-quick@wg0
+```
+
+---
+
+## Client Configuration (Laptop / Phone)
+
+File:
+
+```bash
+/etc/wireguard/wg0.conf
+```
+
+```ini
+[Interface]
+Address = 10.0.0.3/24
+PrivateKey = <INSERT_REMOTE_DEVICE_PRIVATE_KEY>
+DNS = 1.1.1.1
+
+[Peer]
+PublicKey = <INSERT_VPS_PUBLIC_KEY>
+Endpoint = <VPS_PUBLIC_IP>:51820
+AllowedIPs = 10.0.0.0/24
+PersistentKeepalive = 25
+```
+
+---
+
+## Split Tunnel Behavior
+
+This configuration uses **split tunneling**.
+
+Only traffic destined for:
+
+```text
+10.0.0.0/24
+```
+
+goes through WireGuard.
+
+Everything else uses the normal internet connection.
+
+That means:
+
+* access home services privately through VPN
+* normal browsing still uses local internet
+
+---
+
+## Client Usage
+
+### Linux Laptop
+
+Turn VPN on:
+
+```bash
+sudo wg-quick up wg0
+```
+
+Turn VPN off:
+
+```bash
+sudo wg-quick down wg0
+```
+
+### Android
+
+Use the official WireGuard app and toggle the tunnel on/off.
+
+<p align="center">
+  <img src="photos/androidWgApp.jpg">
+</p>
+
+---
+
+## Testing Connectivity
+
+### On VPS
+
+```bash
+sudo wg show
+```
+
+Shows peers, handshakes, transfer stats.
+
+![Hetzner VPS](photos/vpsWgShow.png)
+
+---
+
+### From Laptop
+
+Ping VPS:
+
+```bash
+ping 10.0.0.1
+```
+
+Ping Home Server:
+
+```bash
+ping 10.0.0.2
+```
+
+---
+
+### From Home Server
+
+
+Ping VPS:
+
+```bash
+ping 10.0.0.1
+```
+
+Ping Laptop:
+
+```bash
+ping 10.0.0.3
+```
+---
+
+## Result
+
+This gives me secure remote access to:
+
+* SSH
+* Samba
+* Navidrome
+* any LAN-only service
+
+without exposing anything publicly.
+
 
 ---
 
