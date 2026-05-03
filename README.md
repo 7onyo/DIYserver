@@ -651,6 +651,8 @@ Ping Home Server:
 ping 10.0.0.2
 ```
 
+![Ping From Laptop](photos/pingFromLaptop.png)
+
 ---
 
 ### From Home Server
@@ -667,6 +669,9 @@ Ping Laptop:
 ```bash
 ping 10.0.0.3
 ```
+
+![Ping From Home Server](photos/pingFromHomeServer.png)
+
 ---
 
 ## Result
