@@ -18,13 +18,15 @@
 
 - [Server Setup & Services](#server-setup--services)
   - [Common Setup](#common-setup)
-    - [SSH — Remote Server Access](#ssh--remote-server-access)
+    - [SSH - Remote Server Access](#ssh---remote-server-access)
     - [System Monitoring Tools](#system-monitoring-tools)
   - [ThinkPad Server Setup (Main Server)](#thinkpad-server-setup-main-server)
       - [Storage Layout](#storage-layout)
       - [Storage Permissions](#storage-permissions)
-      - [Samba — Network File Sharing (NAS)](#samba--network-file-sharing-nas)
-      - [Navidrome — Self-Hosted Music Streaming](#navidrome--self-hosted-music-streaming)
+      - [Samba - Network File Sharing (NAS)](#samba---network-file-sharing-nas)
+      - [Navidrome - Self-Hosted Music Streaming](#navidrome---self-hosted-music-streaming)
+      - [Lancache - Local Game Download Cache](#lancache---local-game-download-cache)
+
         <!-- - [Installation](#installation)
         - [User setup](#user-setup)
         - [Configuration](#configuration)
@@ -325,7 +327,7 @@ They provide:
 
 ---
 
-### SSH — Remote Server Access
+### SSH - Remote Server Access
 
 SSH allows the server to be managed remotely from another machine through the terminal.
 
@@ -486,7 +488,7 @@ Explanation:
 
 ---
 
-### Samba — Network File Sharing (NAS)
+### Samba - Network File Sharing (NAS)
 
 Samba is used to expose the `/data` directory to other devices on the network.
 
@@ -627,7 +629,7 @@ sudo systemctl restart smbd
 
 --- 
 
-### Navidrome — Self-Hosted Music Streaming
+### Navidrome - Self-Hosted Music Streaming
 
 **Navidrome** is a lightweight self-hosted music server and web-based player.
 
@@ -862,5 +864,218 @@ After running the script:
 Each generated `.m3u` file contains the `.flac` tracks found inside the matching folder.
 
 This allows Navidrome to import folder-based playlists automatically.
+
+---
+
+### Lancache - Local Game Download Cache
+
+**Lancache** is a self-hosted caching solution designed to locally cache game downloads and updates.
+
+It supports platforms such as:
+
+- Steam
+- Epic Games
+- Riot Games
+- Battle.net
+- many others
+
+Official website:
+
+https://lancache.net/
+
+---
+
+#### Why Use It
+
+Lancache stores downloaded game files locally on the server.
+
+Benefits:
+
+- faster re-downloads
+- reduced repeated internet bandwidth usage
+- useful for multiple PCs on the same network
+- ideal for LAN environments
+
+If one machine downloads a game, the cached data can later be reused by other machines.
+
+---
+
+#### Installation
+
+Clone the official repository:
+
+```bash
+cd /srv/docker
+git clone https://github.com/lancachenet/docker-compose lancache
+cd lancache
+```
+
+Edit the environment file:
+
+```bash
+sudo nano .env
+```
+
+Configuration example:
+
+![Lancache .env Configuration](photos/envFileLancache.png)
+
+Start the service:
+
+```bash
+sudo docker compose up -d
+```
+
+---
+
+#### DNS Configuration (Linux Test Client)
+
+I only tested Lancache on my **Linux laptop**.  
+This is the method I used.
+
+Edit the systemd-resolved configuration:
+
+```bash
+sudo nano /etc/systemd/resolved.conf
+```
+
+Example configuration:
+
+![resolved.conf Configuration](photos/)
+
+Set:
+
+```ini
+DNS=192.168.0.108
+FallbackDNS=1.1.1.1 8.8.8.8
+```
+
+Where:
+
+- `192.168.0.108` → my Lancache / home server
+- `1.1.1.1` and `8.8.8.8` → backup DNS resolvers
+
+Restart the resolver service:
+
+```bash
+sudo systemctl restart systemd-resolved
+```
+
+Flush DNS cache:
+
+```bash
+sudo systemd-resolve --flush-caches
+```
+
+This ensures new DNS requests use the updated configuration.
+
+---
+
+#### Testing
+
+Run:
+
+```bash
+nslookup steam.cache.lancache.net
+```
+
+Expected result:
+
+```text
+Server:         127.0.0.53
+Address:        127.0.0.53#53
+
+Non-authoritative answer:
+Name:   steam.cache.lancache.net
+Address: 192.168.0.108
+```
+
+Where:
+
+- `192.168.0.108` = Lancache server IP
+
+This confirms the domain resolves to the local cache server.
+
+---
+
+#### Real World Testing
+
+##### First Download (Not Cached Yet)
+
+The game is downloaded normally from the internet while simultaneously being cached on the server.
+
+
+![First Download](photos/without.png)
+
+---
+
+##### Cache Files Stored on Server
+
+After the first run, files are stored locally on the server.
+
+![Cached game file](photos/cachedGame.png)
+
+---
+
+##### Second Download (Cached)
+
+Re-downloading the same game pulls files directly from the local server.
+
+![Second Download(after caching)](photos/withLancache.png)
+
+---
+
+#### Performance Notes
+
+At my current location, the speed difference is **not dramatic** because I already have strong internet connectivity.
+
+Current setup:
+
+- 1 Gbit internet plan
+- router Wi-Fi limited to around **500 Mbit/s**
+- laptop already maxing Wi-Fi throughput
+
+So while Lancache is still noticeable, the gain is smaller.
+
+---
+
+#### Previous Testing in Another Location
+
+I tested Lancache previously in another location with:
+
+- 1 Gbit internet plan
+- better router (Wi-Fi ~1 Gbit/s)
+- real speeds around **800–900 Mbit/s**
+
+In that setup, the performance difference was much more visible.
+
+---
+
+##### Without Cache
+
+Peak download speed was around **48 MB/s**.
+
+<p align="center">
+  <img src="photos/without2.png">
+</p>
+
+---
+
+##### After Cached
+
+Once the files were cached locally, peak speed increased to around **74 MB/s**.
+
+<p align="center">
+  <img src="photos/withLancache2.png">
+</p>
+
+---
+
+> **Note:** 
+> This service will likely not remain permanently on my server.  
+>
+> My current biggest bottleneck is **storage capacity**, and Lancache can consume a large amount of disk space over time.
+>
+> I mainly deployed it as an experiment to test how it works.
 
 ---
