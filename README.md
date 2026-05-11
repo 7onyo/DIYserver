@@ -998,7 +998,7 @@ sudo systemctl restart smbd
 
 ---
 
- #### Accessing the NAS from different devices
+ #### Accessing the NAS from different devices (Local Network)
 
 **Linux**
 ![Linux NAS Access](photos/sambaLinux.png)
@@ -1009,6 +1009,22 @@ sudo systemctl restart smbd
 **Android**
 <p align="center">
   <img src="photos/sambaAndroid.jpg">
+</p>
+
+#### Accessing the NAS Through VPN (Remote Access)
+
+When connected to the WireGuard tunnel, the Samba share can also be accessed securely using the server's VPN IP address.
+
+##### Linux (VPN)
+
+![Linux NAS over VPN](photos/smbLinuxVpn.png)
+
+---
+
+##### Android (VPN)
+
+<p align="center">
+  <img src="photos/smbAndroidVpn.jpg">
 </p>
 
 --- 
