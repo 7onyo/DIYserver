@@ -1773,10 +1773,10 @@ Works correctly, but due to the VPS relay tunnel latency is higher than LAN.
 
 ---
 
-<!-- ##### Client Demo
+##### Client Demo
 
-![Minecraft Join Demo](videos/minecraft_join.mp4)
+![Minecraft Client Demo](videos/mcserverDemo.mp4)
 
---- -->
+---
 
 
