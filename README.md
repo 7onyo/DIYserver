@@ -46,11 +46,7 @@
       - [Samba - Network File Sharing (NAS)](#samba---network-file-sharing-nas)
       - [Navidrome - Self-Hosted Music Streaming](#navidrome---self-hosted-music-streaming)
       - [Lancache - Local Game Download Cache](#lancache---local-game-download-cache)
-
-        <!-- - [Installation](#installation)
-        - [User setup](#user-setup)
-        - [Configuration](#configuration)
-        - [Configuration Explanation](#configuration-explanation) -->
+      - [Minecraft - LAN Server](#minecraft---lan-server)
 
 # DIY Home Server
 
@@ -1479,3 +1475,308 @@ Once the files were cached locally, peak speed increased to around **74 MB/s**.
 > I mainly deployed it as an experiment to test how it works.
 
 ---
+
+
+
+### Minecraft - LAN Server
+
+I also host a **Minecraft server** on the home server.
+
+It can be accessed both:
+
+- through the **local network (LAN)**
+- through the **WireGuard VPN tunnel**
+
+However, in my current setup the VPN traffic is routed through a **VPS relay**, which adds extra latency.
+
+Because Minecraft is sensitive to ping and responsiveness, the experience is noticeably better on the local network.
+
+For that reason, I mainly use it as a **LAN server**, while VPN access remains useful for administration or occasional remote play.
+
+---
+
+#### Why I Chose LinuxGSM
+
+For managing the server, I chose **LinuxGSM**.
+
+Official documentation:
+
+https://docs.linuxgsm.com/
+
+LinuxGSM is an excellent game server manager because it supports many games and automates tasks such as:
+
+- downloading server files
+- installing dependencies
+- starting / stopping servers
+- monitoring
+- backups
+- updates
+
+It works largely out of the box without manually installing game server files and dependencies.
+
+I chose it because I already used it successfully in the past on a VPS for a public Minecraft server.
+
+---
+
+#### Why Not Docker
+
+I did **not** use the Docker version of LinuxGSM because:
+
+- it is marked as experimental
+- receives fewer updates
+- native installation is simpler and more mature
+
+---
+
+#### Other Popular Panels / Managers
+
+There are several other great solutions:
+
+- **Pterodactyl Panel**
+- **AMP** *(paid)*
+- **Crafty Controller** *(Minecraft-focused)*
+
+More options:
+
+https://www.ghostcap.com/game-server-control-panels
+
+For my needs, LinuxGSM was the best fit.
+
+---
+
+#### Installation
+
+Create a dedicated user:
+
+```bash
+sudo adduser mcserver
+````
+
+Optional:
+
+```bash
+sudo usermod -aG sudo mcserver
+```
+
+> If the user has sudo privileges, LinuxGSM can automatically install missing dependencies.
+
+Switch user:
+
+```bash
+su - mcserver
+```
+
+Install LinuxGSM:
+
+```bash
+curl -Lo linuxgsm.sh https://linuxgsm.sh && chmod +x linuxgsm.sh && bash linuxgsm.sh mcserver
+```
+
+Install the Minecraft server:
+
+```bash
+./mcserver install
+```
+
+
+
+#### Common LinuxGSM Commands
+
+Run these commands as the `mcserver` user:
+
+```bash
+./mcserver start
+./mcserver stop
+./mcserver restart
+./mcserver details
+./mcserver monitor
+./mcserver update
+./mcserver backup
+./mcserver console
+````
+
+Explanation:
+
+* `start` → starts the Minecraft server
+* `stop` → safely stops the server
+* `restart` → restarts the server
+* `details` → shows server information (IP, ports, status, etc.)
+* `monitor` → checks if the server is running and can restart it if needed
+* `update` → updates server files
+* `backup` → creates a backup
+* `console` → opens the live server console
+
+---
+
+Example usage:
+
+```bash
+su - mcserver
+./mcserver details
+```
+
+
+
+---
+
+#### Server Backups
+
+Initially, I considered using symbolic links so the live server files would exist in:
+
+```text
+/data/shares/minecraft
+```
+
+with symlinks inside:
+
+```text
+/home/mcserver/
+```
+
+But using the built-in LinuxGSM backup system is much cleaner.
+
+LinuxGSM backup command:
+
+```bash
+./mcserver backup
+```
+
+Backup destination:
+
+```text
+/data/shares/minecraft
+```
+
+Set permissions:
+
+```bash
+sudo chown -R mcserver:mcserver /data/shares/minecraft
+sudo chmod -R 755 /data/shares/minecraft
+```
+
+Edit config:
+
+```bash
+nano /home/mcserver/lgsm/config-lgsm/mcserver/mcserver.cfg
+```
+
+Set:
+
+```bash
+backupdir="/data/shares/minecraft"
+maxbackups="3"
+```
+
+---
+
+#### Automated Daily Backup
+
+As user `mcserver`:
+
+```bash
+crontab -e
+```
+
+Add:
+
+```cron
+0 2 * * * /home/mcserver/mcserver backup > /dev/null 2>&1
+```
+
+Meaning:
+
+* Minute `0`
+* Hour `2`
+* Every day
+
+So a backup runs daily at **02:00 AM**.
+
+![Minecraft Server Backup](photos/mcserverArchive.png)
+
+---
+
+#### Common `server.properties` Changes
+
+Typical settings I modify:
+
+```properties
+difficulty=easy (Values: peaceful, easy, normal, hard)
+pvp=true (Values: true, false)
+gamemode=survival (Values: survival, creative, adventure, spectator)
+force-gamemode=false (Values: true, false)
+max-players=20 (Values: Any number)
+online-mode=true (Values: true, false)
+view-distance=10 (Values: Usually 5 to 32)
+simulation-distance=10 (Values: Usually 5 to 32)
+```
+
+Reference:
+
+[https://minecraft.wiki/w/Server.properties](https://minecraft.wiki/w/Server.properties)
+
+---
+
+#### Common Console Commands
+
+Usable in-game (if operator) or from server console:
+
+```text
+op PlayerName
+deop PlayerName
+
+tp Player1 Player2
+tp X Y Z
+
+kick PlayerName Reason
+
+gamemode survival PlayerName
+gamemode creative PlayerName
+```
+
+Reference:
+
+[https://minecraft.wiki/w/Commands](https://minecraft.wiki/w/Commands)
+
+---
+
+#### Access Methods
+
+##### Local Network (Recommended)
+
+```text
+192.168.0.108:25565
+```
+
+Best experience with the lowest latency.
+
+##### Through WireGuard VPN
+
+```text
+10.0.0.2:25565
+```
+
+Works correctly, but due to the VPS relay tunnel latency is higher than LAN.
+
+---
+
+#### Screenshots & Demo
+
+##### LinuxGSM Server Details
+
+![Minecraft Server Details](photos/mcserverDeatils.png)
+
+---
+
+##### Live Server Console
+
+![Minecraft Server Console](photos/mcserverConsole.png)
+
+---
+
+<!-- ##### Client Demo
+
+![Minecraft Join Demo](videos/minecraft_join.mp4)
+
+--- -->
+
+
