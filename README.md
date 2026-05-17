@@ -20,6 +20,18 @@
   - [Battery Configuration](#battery-configuration)
   - [Wake-on-LAN (WoL)](#wake-on-lan-wol)
 
+- [Essential Utilities & Access](#essential-utilities--access)
+  - [SSH - Remote Server Access](#ssh---remote-server-access)
+  - [System Monitoring Tools](#system-monitoring-tools)
+
+- [Main Server - Services Setup](#main-server---services-setup)
+    - [Storage Layout](#storage-layout)
+    - [Storage Permissions](#storage-permissions)
+    - [Samba - Network File Sharing (NAS)](#samba---network-file-sharing-nas)
+    - [Navidrome - Self-Hosted Music Streaming](#navidrome---self-hosted-music-streaming)
+    - [Lancache - Local Game Download Cache](#lancache---local-game-download-cache)
+    - [Minecraft - LAN Server](#minecraft---lan-server)
+
 - [Remote Access - Wireguard VPN](#remote-access---wireguard-vpn)
   - [Why I Chose This Option](#why-i-chose-this-option)
   - [Key Generation](#key-generation)
@@ -33,20 +45,6 @@
   - [Split Tunnel Behavior](#split-tunnel-behavior)
   - [Testing Connectivity](#testing-connectivity)
 
-
-
-- [Server Setup & Services](#server-setup--services)
-  - [Common Setup](#common-setup)
-    - [SSH - Remote Server Access](#ssh---remote-server-access)
-    - [System Monitoring Tools](#system-monitoring-tools)
-
-  - [ThinkPad Server Setup (Main Server)](#thinkpad-server-setup-main-server)
-      - [Storage Layout](#storage-layout)
-      - [Storage Permissions](#storage-permissions)
-      - [Samba - Network File Sharing (NAS)](#samba---network-file-sharing-nas)
-      - [Navidrome - Self-Hosted Music Streaming](#navidrome---self-hosted-music-streaming)
-      - [Lancache - Local Game Download Cache](#lancache---local-game-download-cache)
-      - [Minecraft - LAN Server](#minecraft---lan-server)
 
 # DIY Home Server
 
@@ -320,13 +318,1101 @@ Reference:
 
 https://www.thelinuxvault.net/blog/how-to-wake-on-lan-supported-host-over-the-network-using-linux/
 
-<br>
-<br>
+<!-- <br> -->
+<!-- <br> -->
+
+---
+
+# Essential Utilities & Access
+
+The following configurations are applied to **both servers**.
+
+They provide:
+
+- **Remote management** (SSH)
+- **Basic system monitoring tools**
+
+---
+
+## SSH - Remote Server Access
+
+SSH allows the server to be managed remotely from another machine through the terminal.
+
+### Installation
+
+Install the SSH server:
+
+```bash
+sudo apt install openssh-server
+```
+
+Enable and start the service:
+
+```bash
+sudo systemctl enable ssh
+sudo systemctl start ssh
+```
+
+### Connecting to the Server
+
+From another machine on the network, connect using the following command.  
+In my case:
+
+```bash
+ssh dev@192.168.0.109
+```
+
+Where:
+
+- `dev` is the username on the server  
+- `192.168.0.109` is the server's local IP address
+
+For **Linux and Windows**, I usually connect directly from the **terminal** using the command shown above.
+
+For **Android**, I use the **Termius** SSH client to connect to the servers.
+
+| | |
+|---|---|
+| ![Termius Home Page](photos/termius1.jpg) | ![Termius session](photos/termius2.jpg) |
+
+---
+
+## System Monitoring Tools
+
+Some lightweight tools are installed to quickly inspect system information and resource usage.
+
+### fastfetch
+
+Displays system information.
+
+```bash
+sudo apt install fastfetch
+```
+
+Run:
+
+```bash
+fastfetch
+```
+
+### btop
+
+Interactive resource monitor.
+
+```bash
+sudo apt install btop
+```
+
+Run:
+
+```bash
+btop
+```
+
+### htop
+
+Alternative terminal system monitor.
+
+```bash
+sudo apt install htop
+```
+
+Run:
+
+```bash
+htop
+```
+
+
+
+---
+
+
+
+
+# Main Server - Services Setup
+
+The **ThinkPad T430** acts as the **main server** in this setup.
+
+It is responsible for:
+
+- running **Docker services**
+- providing **network storage (NAS)** via Samba
+- storing application data and media
+
+---
+
+## Storage Layout
+
+Before setting everything up, I defined a directory structure to clearly separate:
+
+- **Docker configurations**
+- **shared data (NAS)**
+- **service-specific data**
+
+Planned layout:
+
+```
+/
+├── srv
+│   └── docker
+│       └── navidrome
+│           └── docker-compose.yml
+│
+└── data
+    ├── shares
+    │   └── media
+    │       └── music
+    │
+    └── services
+        └── navidrome
+            ├── navidrome.db
+            └── cache
+```
+
+This structure keeps:
+
+- configs in `/srv/docker`
+- user-accessible files in `/data/shares`
+- service data isolated in `/data/services`
+
+---
+
+## Storage Permissions
+
+To keep permissions clean and manageable, I created a dedicated **group for storage access** and configured a shared directory.
+
+### Create storage group and configure permissions
+
+```bash
+sudo groupadd storage
+sudo usermod -aG storage dev
+sudo chown -R root:storage /data
+sudo chmod -R 2775 /data
+```
+
+Explanation:
+
+- `storage` → shared group for file access  
+- `dev` → added to the group  
+- `/data` → main shared directory  
+- `2775` → ensures new files inherit the group
+
+---
+
+## Samba - Network File Sharing (NAS)
+
+Samba is used to expose the `/data` directory to other devices on the network.
+
+I chose **Samba (SMB)** instead of **NFS** because I access the server from multiple operating systems:
+
+- **Linux**
+- **Windows**
+- **Android**
+
+SMB is natively supported on all of these platforms, making it a more flexible choice.  
+NFS is more common in Linux-only environments, but requires additional setup or third-party tools on Windows and Android.
+
+### Installation
+
+```bash
+sudo apt update
+sudo apt install samba
+```
+
+Enable and start the service:
+
+```bash
+sudo systemctl enable smbd
+sudo systemctl start smbd
+```
+
+Check status:
+
+```bash
+sudo systemctl status smbd
+```
+
+---
+
+### User setup
+
+Enable Samba access for the user:
+
+```bash
+sudo smbpasswd -e dev
+```
+
+---
+
+### Configuration
+
+Edit the Samba configuration file:
+
+```bash
+sudo nano /etc/samba/smb.conf
+```
+
+Add the following:
+
+```
+[global]
+server string = DebiServ
+workgroup = WORKGROUP
+security = user
+map to guest = Bad User
+
+[data]
+path = /data
+force user = dev
+force group = storage
+create mask = 0664
+force create mode = 0664
+directory mask = 0775
+force directory mode = 0775
+browseable = yes
+writable = yes
+guest ok = no
+read only = no
+```
+
+
+---
+
+### Configuration Explanation
+
+- `[global]` → general server settings  
+- `server string` → server name shown on the network  
+- `workgroup` → Windows workgroup (default: WORKGROUP)  
+- `security = user` → requires authentication  
+- `map to guest = Bad User` → unknown users are treated as guests  
+
+---
+
+- `[data]` → shared folder definition  
+- `path = /data` → directory being shared  
+- `force user / group` → ensures consistent ownership of files  
+- `create mask = 0664` → file permissions (rw-rw-r--)  
+- `directory mask = 0775` → directory permissions (rwxrwxr-x)  
+- `browseable = yes` → visible on the network  
+- `writable = yes` → allows writing  
+- `guest ok = no` → disables anonymous access  
+- `read only = no` → allows modifications  
+
+---
+
+> **Note:** I recommend creating the Samba configuration from scratch instead of modifying the default file.  
+> This helps keep the configuration clean and avoids unnecessary or confusing defaults.
+>
+> You can keep the original file as a reference by renaming it:
+>
+> ```bash
+> sudo mv /etc/samba/smb.conf /etc/samba/smb.conf.old
+> ```
+>
+> Then create a new configuration file:
+>
+> ```bash
+> sudo nano /etc/samba/smb.conf
+> ```
+
+---
+
+Apply changes:
+
+```bash
+sudo systemctl restart smbd
+```
+
+---
+
+ #### Accessing the NAS from different devices (Local Network)
+
+**Linux**
+![Linux NAS Access](photos/sambaLinux.png)
+
+**Windows**
+![Windows NAS Access](photos/sambaWindows.png)
+
+**Android**
+<p align="center">
+  <img src="photos/sambaAndroid.jpg">
+</p>
+
+### Accessing the NAS Through VPN (Remote Access)
+
+When connected to the WireGuard tunnel, the Samba share can also be accessed securely using the server's VPN IP address.
+
+#### Linux (VPN)
+
+![Linux NAS over VPN](photos/smbLinuxVpn.png)
+
+---
+
+#### Android (VPN)
+
+<p align="center">
+  <img src="photos/smbAndroidVpn.jpg">
+</p>
+
+--- 
+
+## Navidrome - Self-Hosted Music Streaming
+
+**Navidrome** is a lightweight self-hosted music server and web-based player.
+
+It allows streaming your personal music library from:
+
+- web browser
+- Android apps
+- Subsonic-compatible clients
+- other devices on the network
+
+Official documentation:
+
+https://www.navidrome.org/docs/installation/docker/
+
+---
+
+### My Music Library
+
+My personal music collection is stored locally and served through Navidrome.
+
+Library details:
+
+- around **1100 songs**
+- approximately **35 GB**
+- all files in **FLAC** format
+- organized into folders representing playlists
+
+I originally kept most of my music on **Spotify**.  
+Later, I transferred the library to **Deezer**, then used **Deemix** to download and preserve the collection locally in FLAC quality.
+
+This gives me:
+
+- full ownership of my library
+- offline access
+- no subscription dependency
+- higher audio quality
+- compatibility with self-hosted streaming
+
+![My Music](photos/myMusic.png)
+
+---
+
+### Directory Location
+
+Docker project files are stored in:
+
+```bash
+/srv/docker/navidrome
+```
+
+---
+
+### Docker Compose Configuration
+
+Create:
+
+```bash
+sudo nano /srv/docker/navidrome/docker-compose.yml
+```
+
+Add:
+
+```yaml
+services:
+  navidrome:
+    image: deluan/navidrome:latest
+    user: 1000:1000
+    ports:
+      - "4533:4533"
+    restart: unless-stopped
+    environment:
+      ND_LOGLEVEL: info
+    volumes:
+      - "/data/services/navidrome/:/data"
+      - "/data/shares/media/music/:/music:ro"
+```
+
+---
+
+### Volume Explanation
+
+```bash
+/data/services/navidrome/
+```
+
+Used for:
+
+- application data
+- database
+- cache
+- metadata
+
+This folder is also accessible through Samba for easier management.
+
+---
+
+```bash
+/data/shares/media/music/
+```
+
+Used as the main music library location.
+
+This is where I store my music files.
+
+It is mounted as:
+
+```bash
+/music:ro
+```
+
+Meaning:
+
+- read-only for the container
+- protects music files from accidental modification
+
+---
+
+### Starting the Container
+
+From the project directory:
+
+```bash
+cd /srv/docker/navidrome
+docker compose up -d
+```
+
+---
+
+### Accessing Navidrome
+
+Open in browser:
+
+```text
+http://SERVER_IP:4533
+```
+
+Example:
+
+```text
+http://192.168.0.108:4533
+```
+
+---
+
+### Clients
+
+I currently use the following clients to access Navidrome.
+
+#### PC / Linux / Windows
+
+- Web browser
+- SubTUI (Subsonic-compatible CLI client)
+
+
+![Navidrome in Browser](photos/navidromeBrowser.png)
+![SubTUI](photos/subTUI.png)
+
+
+---
+
+#### Android
+
+- **Symfonium** *(paid one-time purchase, around 25 RON)*
+
+> Note: There are multiple options for clients compatible with Navidrome: https://www.navidrome.org/apps/
+
+<p align="center">
+  <img src="photos/symfonium.jpg">
+</p>
+---
+
+### Playlist Import Script
+
+My music library is organized in folders, where each folder represents a playlist.
+
+Navidrome recognizes standard playlist files such as `.m3u`, so I created a small script to automatically generate playlist files from those folders.
+
+Create:
+
+```bash
+nano importInNavidrome.sh
+```
+
+Add:
+
+```bash
+#!/bin/bash
+cd /data/shares/media/music/ || exit 1
+
+for dir in */; do
+    find "$dir" -type f -name "*.flac" | sort > "${dir%/}.m3u"
+done
+```
+
+Make executable:
+
+```bash
+chmod +x importInNavidrome.sh
+```
+
+Run:
+
+```bash
+./importInNavidrome.sh
+```
+
+---
+
+### How It Works
+
+Example structure before running:
+
+```text
+/music/playlists/
+├── Good Shit!/
+├── Pop/
+└── Killing the Classics/
+```
+
+After running the script:
+
+```text
+/music/playlists/
+├── Good Shit!/
+├── Good Shit!.m3u
+├── Pop/
+├── Pop.m3u
+├── Killing the Classics/
+└── Killing the Classics.m3u
+```
+
+Each generated `.m3u` file contains the `.flac` tracks found inside the matching folder.
+
+This allows Navidrome to import folder-based playlists automatically.
+
+---
+
+## Lancache - Local Game Download Cache
+
+**Lancache** is a self-hosted caching solution designed to locally cache game downloads and updates.
+
+It supports platforms such as:
+
+- Steam
+- Epic Games
+- Riot Games
+- Battle.net
+- many others
+
+Official website:
+
+https://lancache.net/
+
+---
+
+### Why Use It
+
+Lancache stores downloaded game files locally on the server.
+
+Benefits:
+
+- faster re-downloads
+- reduced repeated internet bandwidth usage
+- useful for multiple PCs on the same network
+- ideal for LAN environments
+
+If one machine downloads a game, the cached data can later be reused by other machines.
+
+---
+
+### Installation
+
+Clone the official repository:
+
+```bash
+cd /srv/docker
+git clone https://github.com/lancachenet/docker-compose lancache
+cd lancache
+```
+
+Edit the environment file:
+
+```bash
+sudo nano .env
+```
+
+Configuration example:
+
+![Lancache .env Configuration](photos/envFileLancache.png)
+
+Start the service:
+
+```bash
+sudo docker compose up -d
+```
+
+---
+
+### DNS Configuration (Linux Test Client)
+
+I only tested Lancache on my **Linux laptop**.  
+This is the method I used.
+
+Edit the systemd-resolved configuration:
+
+```bash
+sudo nano /etc/systemd/resolved.conf
+```
+
+Example configuration:
+
+![resolved.conf Configuration](photos/systemdResolved.png)
+
+Set:
+
+```ini
+DNS=192.168.0.108
+FallbackDNS=1.1.1.1 8.8.8.8
+```
+
+Where:
+
+- `192.168.0.108` → my Lancache / home server
+- `1.1.1.1` and `8.8.8.8` → backup DNS resolvers
+
+Restart the resolver service:
+
+```bash
+sudo systemctl restart systemd-resolved
+```
+
+Flush DNS cache:
+
+```bash
+sudo systemd-resolve --flush-caches
+```
+
+This ensures new DNS requests use the updated configuration.
+
+---
+
+### Testing
+
+Run:
+
+```bash
+nslookup steam.cache.lancache.net
+```
+
+Expected result:
+
+```text
+Server:         127.0.0.53
+Address:        127.0.0.53#53
+
+Non-authoritative answer:
+Name:   steam.cache.lancache.net
+Address: 192.168.0.108
+```
+
+Where:
+
+- `192.168.0.108` = Lancache server IP
+
+This confirms the domain resolves to the local cache server.
+
+---
+
+### Real World Testing
+
+#### First Download (Not Cached Yet)
+
+The game is downloaded normally from the internet while simultaneously being cached on the server.
+
+
+![First Download](photos/without.png)
+
+---
+
+#### Cache Files Stored on Server
+
+After the first run, files are stored locally on the server.
+
+![Cached game file](photos/cachedGame.png)
+
+---
+
+#### Second Download (Cached)
+
+Re-downloading the same game pulls files directly from the local server.
+
+![Second Download(after caching)](photos/withLancache.png)
+
+---
+
+### Performance Notes
+
+At my current location, the speed difference is **not dramatic** because I already have strong internet connectivity.
+
+Current setup:
+
+- 1 Gbit internet plan
+- router Wi-Fi limited to around **500 Mbit/s**
+- laptop already maxing Wi-Fi throughput
+
+So while Lancache is still noticeable, the gain is smaller.
+
+---
+
+### Previous Testing in Another Location
+
+I tested Lancache previously in another location with:
+
+- 1 Gbit internet plan
+- better router (Wi-Fi ~1 Gbit/s)
+- real speeds around **800–900 Mbit/s**
+
+In that setup, the performance difference was much more visible.
+
+---
+
+#### Without Cache
+
+Peak download speed was around **48 MB/s**.
+
+<p align="center">
+  <img src="photos/without2.png">
+</p>
+
+---
+
+#### After Cached
+
+Once the files were cached locally, peak speed increased to around **74 MB/s**.
+
+<p align="center">
+  <img src="photos/withLancache2.png">
+</p>
+
+---
+
+> **Note:** 
+> This service will likely not remain permanently on my server.  
+>
+> My current biggest bottleneck is **storage capacity**, and Lancache can consume a large amount of disk space over time.
+>
+> I mainly deployed it as an experiment to test how it works.
+
+---
+
+
+
+## Minecraft - LAN Server
+
+I also host a **Minecraft server** on the home server.
+
+It can be accessed both:
+
+- through the **local network (LAN)**
+- through the **WireGuard VPN tunnel**
+
+However, in my current setup the VPN traffic is routed through a **VPS relay**, which adds extra latency.
+
+Because Minecraft is sensitive to ping and responsiveness, the experience is noticeably better on the local network.
+
+For that reason, I mainly use it as a **LAN server**, while VPN access remains useful for administration or occasional remote play.
+
+---
+
+### Why I Chose LinuxGSM
+
+For managing the server, I chose **LinuxGSM**.
+
+Official documentation:
+
+https://docs.linuxgsm.com/
+
+LinuxGSM is an excellent game server manager because it supports many games and automates tasks such as:
+
+- downloading server files
+- installing dependencies
+- starting / stopping servers
+- monitoring
+- backups
+- updates
+
+It works largely out of the box without manually installing game server files and dependencies.
+
+I chose it because I already used it successfully in the past on a VPS for a public Minecraft server.
+
+---
+
+### Why Not Docker
+
+I did **not** use the Docker version of LinuxGSM because:
+
+- it is marked as experimental
+- receives fewer updates
+- native installation is simpler and more mature
+
+---
+
+### Other Popular Panels / Managers
+
+There are several other great solutions:
+
+- **Pterodactyl Panel**
+- **AMP** *(paid)*
+- **Crafty Controller** *(Minecraft-focused)*
+
+More options:
+
+https://www.ghostcap.com/game-server-control-panels
+
+For my needs, LinuxGSM was the best fit.
+
+---
+
+### Installation
+
+Create a dedicated user:
+
+```bash
+sudo adduser mcserver
+````
+
+Optional:
+
+```bash
+sudo usermod -aG sudo mcserver
+```
+
+> If the user has sudo privileges, LinuxGSM can automatically install missing dependencies.
+
+Switch user:
+
+```bash
+su - mcserver
+```
+
+Install LinuxGSM:
+
+```bash
+curl -Lo linuxgsm.sh https://linuxgsm.sh && chmod +x linuxgsm.sh && bash linuxgsm.sh mcserver
+```
+
+Install the Minecraft server:
+
+```bash
+./mcserver install
+```
+
+
+
+### Common LinuxGSM Commands
+
+Run these commands as the `mcserver` user:
+
+```bash
+./mcserver start
+./mcserver stop
+./mcserver restart
+./mcserver details
+./mcserver monitor
+./mcserver update
+./mcserver backup
+./mcserver console
+````
+
+Explanation:
+
+* `start` → starts the Minecraft server
+* `stop` → safely stops the server
+* `restart` → restarts the server
+* `details` → shows server information (IP, ports, status, etc.)
+* `monitor` → checks if the server is running and can restart it if needed
+* `update` → updates server files
+* `backup` → creates a backup
+* `console` → opens the live server console
+
+---
+
+Example usage:
+
+```bash
+su - mcserver
+./mcserver details
+```
+
+
+
+---
+
+### Server Backups
+
+Initially, I considered using symbolic links so the live server files would exist in:
+
+```text
+/data/shares/minecraft
+```
+
+with symlinks inside:
+
+```text
+/home/mcserver/
+```
+
+But using the built-in LinuxGSM backup system is much cleaner.
+
+LinuxGSM backup command:
+
+```bash
+./mcserver backup
+```
+
+Backup destination:
+
+```text
+/data/shares/minecraft
+```
+
+Set permissions:
+
+```bash
+sudo chown -R mcserver:mcserver /data/shares/minecraft
+sudo chmod -R 755 /data/shares/minecraft
+```
+
+Edit config:
+
+```bash
+nano /home/mcserver/lgsm/config-lgsm/mcserver/mcserver.cfg
+```
+
+Set:
+
+```bash
+backupdir="/data/shares/minecraft"
+maxbackups="3"
+```
+
+---
+
+### Automated Daily Backup
+
+As user `mcserver`:
+
+```bash
+crontab -e
+```
+
+Add:
+
+```cron
+0 2 * * * /home/mcserver/mcserver backup > /dev/null 2>&1
+```
+
+Meaning:
+
+* Minute `0`
+* Hour `2`
+* Every day
+
+So a backup runs daily at **02:00 AM**.
+
+![Minecraft Server Backup](photos/mcserverArchive.png)
+
+---
+
+### Common `server.properties` Changes
+
+Typical settings I modify:
+
+```properties
+difficulty=easy (Values: peaceful, easy, normal, hard)
+pvp=true (Values: true, false)
+gamemode=survival (Values: survival, creative, adventure, spectator)
+force-gamemode=false (Values: true, false)
+max-players=20 (Values: Any number)
+online-mode=true (Values: true, false)
+view-distance=10 (Values: Usually 5 to 32)
+simulation-distance=10 (Values: Usually 5 to 32)
+```
+
+Reference:
+
+[https://minecraft.wiki/w/Server.properties](https://minecraft.wiki/w/Server.properties)
+
+---
+
+### Common Console Commands
+
+Usable in-game (if operator) or from server console:
+
+```text
+op PlayerName
+deop PlayerName
+
+tp Player1 Player2
+tp X Y Z
+
+kick PlayerName Reason
+
+gamemode survival PlayerName
+gamemode creative PlayerName
+```
+
+Reference:
+
+[https://minecraft.wiki/w/Commands](https://minecraft.wiki/w/Commands)
+
+---
+
+### Access Methods
+
+#### Local Network (Recommended)
+
+```text
+192.168.0.108:25565
+```
+
+Best experience with the lowest latency.
+
+#### Through WireGuard VPN
+
+```text
+10.0.0.2:25565
+```
+
+Works correctly, but due to the VPS relay tunnel latency is higher than LAN.
+
+---
+
+### Screenshots & Demo
+
+#### LinuxGSM Server Details
+
+![Minecraft Server Details](photos/mcserverDeatils.png)
+
+---
+
+#### Live Server Console
+
+![Minecraft Server Console](photos/mcserverConsole.png)
+
+---
+
+#### Client Demo
+
+![Minecraft Client Demo](videos/mcserverDemo.mp4)
+
 
 ---
 
 # Remote Access - Wireguard VPN
-<!-- ````markdown id="vpsrelay01" -->
 
 Since my home server is located on a residential connection, direct remote access doesn't work. 
 
@@ -683,1100 +1769,4 @@ without exposing anything publicly.
 
 
 ---
-
-# Server Setup & Services
-
-This section covers the core services and configurations that transform the machines into a functional servers.
-
-The setup is divided into three parts:
-
-- **Common setup** applied to both servers
-- **ThinkPad server setup** for the main server
-- **HP server setup** for the backup server
-
----
-
-## Common Setup
-
-The following configurations are applied to **both servers**.
-
-They provide:
-
-- **Remote management** (SSH)
-- **Basic system monitoring tools**
-
----
-
-### SSH - Remote Server Access
-
-SSH allows the server to be managed remotely from another machine through the terminal.
-
-#### Installation
-
-Install the SSH server:
-
-```bash
-sudo apt install openssh-server
-```
-
-Enable and start the service:
-
-```bash
-sudo systemctl enable ssh
-sudo systemctl start ssh
-```
-
-#### Connecting to the Server
-
-From another machine on the network, connect using the following command.  
-In my case:
-
-```bash
-ssh dev@192.168.0.109
-```
-
-Where:
-
-- `dev` is the username on the server  
-- `192.168.0.109` is the server's local IP address
-
-For **Linux and Windows**, I usually connect directly from the **terminal** using the command shown above.
-
-For **Android**, I use the **Termius** SSH client to connect to the servers.
-
-| | |
-|---|---|
-| ![Termius Home Page](photos/termius1.jpg) | ![Termius session](photos/termius2.jpg) |
-
----
-
-### System Monitoring Tools
-
-Some lightweight tools are installed to quickly inspect system information and resource usage.
-
-#### fastfetch
-
-Displays system information.
-
-```bash
-sudo apt install fastfetch
-```
-
-Run:
-
-```bash
-fastfetch
-```
-
-#### btop
-
-Interactive resource monitor.
-
-```bash
-sudo apt install btop
-```
-
-Run:
-
-```bash
-btop
-```
-
-#### htop
-
-Alternative terminal system monitor.
-
-```bash
-sudo apt install htop
-```
-
-Run:
-
-```bash
-htop
-```
-
----
-
-## ThinkPad Server Setup (Main Server)
-
-The **ThinkPad T430** acts as the **main server** in this setup.
-
-It is responsible for:
-
-- running **Docker services**
-- providing **network storage (NAS)** via Samba
-- storing application data and media
-
----
-
-### Storage Layout
-
-Before setting everything up, I defined a directory structure to clearly separate:
-
-- **Docker configurations**
-- **shared data (NAS)**
-- **service-specific data**
-
-Planned layout:
-
-```
-/
-├── srv
-│   └── docker
-│       └── navidrome
-│           └── docker-compose.yml
-│
-└── data
-    ├── shares
-    │   └── media
-    │       └── music
-    │
-    └── services
-        └── navidrome
-            ├── navidrome.db
-            └── cache
-```
-
-This structure keeps:
-
-- configs in `/srv/docker`
-- user-accessible files in `/data/shares`
-- service data isolated in `/data/services`
-
----
-
-### Storage Permissions
-
-To keep permissions clean and manageable, I created a dedicated **group for storage access** and configured a shared directory.
-
-#### Create storage group and configure permissions
-
-```bash
-sudo groupadd storage
-sudo usermod -aG storage dev
-sudo chown -R root:storage /data
-sudo chmod -R 2775 /data
-```
-
-Explanation:
-
-- `storage` → shared group for file access  
-- `dev` → added to the group  
-- `/data` → main shared directory  
-- `2775` → ensures new files inherit the group
-
----
-
-### Samba - Network File Sharing (NAS)
-
-Samba is used to expose the `/data` directory to other devices on the network.
-
-I chose **Samba (SMB)** instead of **NFS** because I access the server from multiple operating systems:
-
-- **Linux**
-- **Windows**
-- **Android**
-
-SMB is natively supported on all of these platforms, making it a more flexible choice.  
-NFS is more common in Linux-only environments, but requires additional setup or third-party tools on Windows and Android.
-
-#### Installation
-
-```bash
-sudo apt update
-sudo apt install samba
-```
-
-Enable and start the service:
-
-```bash
-sudo systemctl enable smbd
-sudo systemctl start smbd
-```
-
-Check status:
-
-```bash
-sudo systemctl status smbd
-```
-
----
-
-#### User setup
-
-Enable Samba access for the user:
-
-```bash
-sudo smbpasswd -e dev
-```
-
----
-
-#### Configuration
-
-Edit the Samba configuration file:
-
-```bash
-sudo nano /etc/samba/smb.conf
-```
-
-Add the following:
-
-```
-[global]
-server string = DebiServ
-workgroup = WORKGROUP
-security = user
-map to guest = Bad User
-
-[data]
-path = /data
-force user = dev
-force group = storage
-create mask = 0664
-force create mode = 0664
-directory mask = 0775
-force directory mode = 0775
-browseable = yes
-writable = yes
-guest ok = no
-read only = no
-```
-
-
----
-
-#### Configuration Explanation
-
-- `[global]` → general server settings  
-- `server string` → server name shown on the network  
-- `workgroup` → Windows workgroup (default: WORKGROUP)  
-- `security = user` → requires authentication  
-- `map to guest = Bad User` → unknown users are treated as guests  
-
----
-
-- `[data]` → shared folder definition  
-- `path = /data` → directory being shared  
-- `force user / group` → ensures consistent ownership of files  
-- `create mask = 0664` → file permissions (rw-rw-r--)  
-- `directory mask = 0775` → directory permissions (rwxrwxr-x)  
-- `browseable = yes` → visible on the network  
-- `writable = yes` → allows writing  
-- `guest ok = no` → disables anonymous access  
-- `read only = no` → allows modifications  
-
----
-
-> **Note:** I recommend creating the Samba configuration from scratch instead of modifying the default file.  
-> This helps keep the configuration clean and avoids unnecessary or confusing defaults.
->
-> You can keep the original file as a reference by renaming it:
->
-> ```bash
-> sudo mv /etc/samba/smb.conf /etc/samba/smb.conf.old
-> ```
->
-> Then create a new configuration file:
->
-> ```bash
-> sudo nano /etc/samba/smb.conf
-> ```
-
----
-
-Apply changes:
-
-```bash
-sudo systemctl restart smbd
-```
-
----
-
- #### Accessing the NAS from different devices (Local Network)
-
-**Linux**
-![Linux NAS Access](photos/sambaLinux.png)
-
-**Windows**
-![Windows NAS Access](photos/sambaWindows.png)
-
-**Android**
-<p align="center">
-  <img src="photos/sambaAndroid.jpg">
-</p>
-
-#### Accessing the NAS Through VPN (Remote Access)
-
-When connected to the WireGuard tunnel, the Samba share can also be accessed securely using the server's VPN IP address.
-
-##### Linux (VPN)
-
-![Linux NAS over VPN](photos/smbLinuxVpn.png)
-
----
-
-##### Android (VPN)
-
-<p align="center">
-  <img src="photos/smbAndroidVpn.jpg">
-</p>
-
---- 
-
-### Navidrome - Self-Hosted Music Streaming
-
-**Navidrome** is a lightweight self-hosted music server and web-based player.
-
-It allows streaming your personal music library from:
-
-- web browser
-- Android apps
-- Subsonic-compatible clients
-- other devices on the network
-
-Official documentation:
-
-https://www.navidrome.org/docs/installation/docker/
-
----
-
-#### My Music Library
-
-My personal music collection is stored locally and served through Navidrome.
-
-Library details:
-
-- around **1100 songs**
-- approximately **35 GB**
-- all files in **FLAC** format
-- organized into folders representing playlists
-
-I originally kept most of my music on **Spotify**.  
-Later, I transferred the library to **Deezer**, then used **Deemix** to download and preserve the collection locally in FLAC quality.
-
-This gives me:
-
-- full ownership of my library
-- offline access
-- no subscription dependency
-- higher audio quality
-- compatibility with self-hosted streaming
-
-![My Music](photos/myMusic.png)
-
----
-
-#### Directory Location
-
-Docker project files are stored in:
-
-```bash
-/srv/docker/navidrome
-```
-
----
-
-#### Docker Compose Configuration
-
-Create:
-
-```bash
-sudo nano /srv/docker/navidrome/docker-compose.yml
-```
-
-Add:
-
-```yaml
-services:
-  navidrome:
-    image: deluan/navidrome:latest
-    user: 1000:1000
-    ports:
-      - "4533:4533"
-    restart: unless-stopped
-    environment:
-      ND_LOGLEVEL: info
-    volumes:
-      - "/data/services/navidrome/:/data"
-      - "/data/shares/media/music/:/music:ro"
-```
-
----
-
-#### Volume Explanation
-
-```bash
-/data/services/navidrome/
-```
-
-Used for:
-
-- application data
-- database
-- cache
-- metadata
-
-This folder is also accessible through Samba for easier management.
-
----
-
-```bash
-/data/shares/media/music/
-```
-
-Used as the main music library location.
-
-This is where I store my music files.
-
-It is mounted as:
-
-```bash
-/music:ro
-```
-
-Meaning:
-
-- read-only for the container
-- protects music files from accidental modification
-
----
-
-#### Starting the Container
-
-From the project directory:
-
-```bash
-cd /srv/docker/navidrome
-docker compose up -d
-```
-
----
-
-#### Accessing Navidrome
-
-Open in browser:
-
-```text
-http://SERVER_IP:4533
-```
-
-Example:
-
-```text
-http://192.168.0.108:4533
-```
-
----
-
-#### Clients
-
-I currently use the following clients to access Navidrome.
-
-##### PC / Linux / Windows
-
-- Web browser
-- SubTUI (Subsonic-compatible CLI client)
-
-
-![Navidrome in Browser](photos/navidromeBrowser.png)
-![SubTUI](photos/subTUI.png)
-
-
----
-
-##### Android
-
-- **Symfonium** *(paid one-time purchase, around 25 RON)*
-
-> Note: There are multiple options for clients compatible with Navidrome: https://www.navidrome.org/apps/
-
-<p align="center">
-  <img src="photos/symfonium.jpg">
-</p>
----
-
-#### Playlist Import Script
-
-My music library is organized in folders, where each folder represents a playlist.
-
-Navidrome recognizes standard playlist files such as `.m3u`, so I created a small script to automatically generate playlist files from those folders.
-
-Create:
-
-```bash
-nano importInNavidrome.sh
-```
-
-Add:
-
-```bash
-#!/bin/bash
-cd /data/shares/media/music/ || exit 1
-
-for dir in */; do
-    find "$dir" -type f -name "*.flac" | sort > "${dir%/}.m3u"
-done
-```
-
-Make executable:
-
-```bash
-chmod +x importInNavidrome.sh
-```
-
-Run:
-
-```bash
-./importInNavidrome.sh
-```
-
----
-
-#### How It Works
-
-Example structure before running:
-
-```text
-/music/playlists/
-├── Good Shit!/
-├── Pop/
-└── Killing the Classics/
-```
-
-After running the script:
-
-```text
-/music/playlists/
-├── Good Shit!/
-├── Good Shit!.m3u
-├── Pop/
-├── Pop.m3u
-├── Killing the Classics/
-└── Killing the Classics.m3u
-```
-
-Each generated `.m3u` file contains the `.flac` tracks found inside the matching folder.
-
-This allows Navidrome to import folder-based playlists automatically.
-
----
-
-### Lancache - Local Game Download Cache
-
-**Lancache** is a self-hosted caching solution designed to locally cache game downloads and updates.
-
-It supports platforms such as:
-
-- Steam
-- Epic Games
-- Riot Games
-- Battle.net
-- many others
-
-Official website:
-
-https://lancache.net/
-
----
-
-#### Why Use It
-
-Lancache stores downloaded game files locally on the server.
-
-Benefits:
-
-- faster re-downloads
-- reduced repeated internet bandwidth usage
-- useful for multiple PCs on the same network
-- ideal for LAN environments
-
-If one machine downloads a game, the cached data can later be reused by other machines.
-
----
-
-#### Installation
-
-Clone the official repository:
-
-```bash
-cd /srv/docker
-git clone https://github.com/lancachenet/docker-compose lancache
-cd lancache
-```
-
-Edit the environment file:
-
-```bash
-sudo nano .env
-```
-
-Configuration example:
-
-![Lancache .env Configuration](photos/envFileLancache.png)
-
-Start the service:
-
-```bash
-sudo docker compose up -d
-```
-
----
-
-#### DNS Configuration (Linux Test Client)
-
-I only tested Lancache on my **Linux laptop**.  
-This is the method I used.
-
-Edit the systemd-resolved configuration:
-
-```bash
-sudo nano /etc/systemd/resolved.conf
-```
-
-Example configuration:
-
-![resolved.conf Configuration](photos/systemdResolved.png)
-
-Set:
-
-```ini
-DNS=192.168.0.108
-FallbackDNS=1.1.1.1 8.8.8.8
-```
-
-Where:
-
-- `192.168.0.108` → my Lancache / home server
-- `1.1.1.1` and `8.8.8.8` → backup DNS resolvers
-
-Restart the resolver service:
-
-```bash
-sudo systemctl restart systemd-resolved
-```
-
-Flush DNS cache:
-
-```bash
-sudo systemd-resolve --flush-caches
-```
-
-This ensures new DNS requests use the updated configuration.
-
----
-
-#### Testing
-
-Run:
-
-```bash
-nslookup steam.cache.lancache.net
-```
-
-Expected result:
-
-```text
-Server:         127.0.0.53
-Address:        127.0.0.53#53
-
-Non-authoritative answer:
-Name:   steam.cache.lancache.net
-Address: 192.168.0.108
-```
-
-Where:
-
-- `192.168.0.108` = Lancache server IP
-
-This confirms the domain resolves to the local cache server.
-
----
-
-#### Real World Testing
-
-##### First Download (Not Cached Yet)
-
-The game is downloaded normally from the internet while simultaneously being cached on the server.
-
-
-![First Download](photos/without.png)
-
----
-
-##### Cache Files Stored on Server
-
-After the first run, files are stored locally on the server.
-
-![Cached game file](photos/cachedGame.png)
-
----
-
-##### Second Download (Cached)
-
-Re-downloading the same game pulls files directly from the local server.
-
-![Second Download(after caching)](photos/withLancache.png)
-
----
-
-#### Performance Notes
-
-At my current location, the speed difference is **not dramatic** because I already have strong internet connectivity.
-
-Current setup:
-
-- 1 Gbit internet plan
-- router Wi-Fi limited to around **500 Mbit/s**
-- laptop already maxing Wi-Fi throughput
-
-So while Lancache is still noticeable, the gain is smaller.
-
----
-
-#### Previous Testing in Another Location
-
-I tested Lancache previously in another location with:
-
-- 1 Gbit internet plan
-- better router (Wi-Fi ~1 Gbit/s)
-- real speeds around **800–900 Mbit/s**
-
-In that setup, the performance difference was much more visible.
-
----
-
-##### Without Cache
-
-Peak download speed was around **48 MB/s**.
-
-<p align="center">
-  <img src="photos/without2.png">
-</p>
-
----
-
-##### After Cached
-
-Once the files were cached locally, peak speed increased to around **74 MB/s**.
-
-<p align="center">
-  <img src="photos/withLancache2.png">
-</p>
-
----
-
-> **Note:** 
-> This service will likely not remain permanently on my server.  
->
-> My current biggest bottleneck is **storage capacity**, and Lancache can consume a large amount of disk space over time.
->
-> I mainly deployed it as an experiment to test how it works.
-
----
-
-
-
-### Minecraft - LAN Server
-
-I also host a **Minecraft server** on the home server.
-
-It can be accessed both:
-
-- through the **local network (LAN)**
-- through the **WireGuard VPN tunnel**
-
-However, in my current setup the VPN traffic is routed through a **VPS relay**, which adds extra latency.
-
-Because Minecraft is sensitive to ping and responsiveness, the experience is noticeably better on the local network.
-
-For that reason, I mainly use it as a **LAN server**, while VPN access remains useful for administration or occasional remote play.
-
----
-
-#### Why I Chose LinuxGSM
-
-For managing the server, I chose **LinuxGSM**.
-
-Official documentation:
-
-https://docs.linuxgsm.com/
-
-LinuxGSM is an excellent game server manager because it supports many games and automates tasks such as:
-
-- downloading server files
-- installing dependencies
-- starting / stopping servers
-- monitoring
-- backups
-- updates
-
-It works largely out of the box without manually installing game server files and dependencies.
-
-I chose it because I already used it successfully in the past on a VPS for a public Minecraft server.
-
----
-
-#### Why Not Docker
-
-I did **not** use the Docker version of LinuxGSM because:
-
-- it is marked as experimental
-- receives fewer updates
-- native installation is simpler and more mature
-
----
-
-#### Other Popular Panels / Managers
-
-There are several other great solutions:
-
-- **Pterodactyl Panel**
-- **AMP** *(paid)*
-- **Crafty Controller** *(Minecraft-focused)*
-
-More options:
-
-https://www.ghostcap.com/game-server-control-panels
-
-For my needs, LinuxGSM was the best fit.
-
----
-
-#### Installation
-
-Create a dedicated user:
-
-```bash
-sudo adduser mcserver
-````
-
-Optional:
-
-```bash
-sudo usermod -aG sudo mcserver
-```
-
-> If the user has sudo privileges, LinuxGSM can automatically install missing dependencies.
-
-Switch user:
-
-```bash
-su - mcserver
-```
-
-Install LinuxGSM:
-
-```bash
-curl -Lo linuxgsm.sh https://linuxgsm.sh && chmod +x linuxgsm.sh && bash linuxgsm.sh mcserver
-```
-
-Install the Minecraft server:
-
-```bash
-./mcserver install
-```
-
-
-
-#### Common LinuxGSM Commands
-
-Run these commands as the `mcserver` user:
-
-```bash
-./mcserver start
-./mcserver stop
-./mcserver restart
-./mcserver details
-./mcserver monitor
-./mcserver update
-./mcserver backup
-./mcserver console
-````
-
-Explanation:
-
-* `start` → starts the Minecraft server
-* `stop` → safely stops the server
-* `restart` → restarts the server
-* `details` → shows server information (IP, ports, status, etc.)
-* `monitor` → checks if the server is running and can restart it if needed
-* `update` → updates server files
-* `backup` → creates a backup
-* `console` → opens the live server console
-
----
-
-Example usage:
-
-```bash
-su - mcserver
-./mcserver details
-```
-
-
-
----
-
-#### Server Backups
-
-Initially, I considered using symbolic links so the live server files would exist in:
-
-```text
-/data/shares/minecraft
-```
-
-with symlinks inside:
-
-```text
-/home/mcserver/
-```
-
-But using the built-in LinuxGSM backup system is much cleaner.
-
-LinuxGSM backup command:
-
-```bash
-./mcserver backup
-```
-
-Backup destination:
-
-```text
-/data/shares/minecraft
-```
-
-Set permissions:
-
-```bash
-sudo chown -R mcserver:mcserver /data/shares/minecraft
-sudo chmod -R 755 /data/shares/minecraft
-```
-
-Edit config:
-
-```bash
-nano /home/mcserver/lgsm/config-lgsm/mcserver/mcserver.cfg
-```
-
-Set:
-
-```bash
-backupdir="/data/shares/minecraft"
-maxbackups="3"
-```
-
----
-
-#### Automated Daily Backup
-
-As user `mcserver`:
-
-```bash
-crontab -e
-```
-
-Add:
-
-```cron
-0 2 * * * /home/mcserver/mcserver backup > /dev/null 2>&1
-```
-
-Meaning:
-
-* Minute `0`
-* Hour `2`
-* Every day
-
-So a backup runs daily at **02:00 AM**.
-
-![Minecraft Server Backup](photos/mcserverArchive.png)
-
----
-
-#### Common `server.properties` Changes
-
-Typical settings I modify:
-
-```properties
-difficulty=easy (Values: peaceful, easy, normal, hard)
-pvp=true (Values: true, false)
-gamemode=survival (Values: survival, creative, adventure, spectator)
-force-gamemode=false (Values: true, false)
-max-players=20 (Values: Any number)
-online-mode=true (Values: true, false)
-view-distance=10 (Values: Usually 5 to 32)
-simulation-distance=10 (Values: Usually 5 to 32)
-```
-
-Reference:
-
-[https://minecraft.wiki/w/Server.properties](https://minecraft.wiki/w/Server.properties)
-
----
-
-#### Common Console Commands
-
-Usable in-game (if operator) or from server console:
-
-```text
-op PlayerName
-deop PlayerName
-
-tp Player1 Player2
-tp X Y Z
-
-kick PlayerName Reason
-
-gamemode survival PlayerName
-gamemode creative PlayerName
-```
-
-Reference:
-
-[https://minecraft.wiki/w/Commands](https://minecraft.wiki/w/Commands)
-
----
-
-#### Access Methods
-
-##### Local Network (Recommended)
-
-```text
-192.168.0.108:25565
-```
-
-Best experience with the lowest latency.
-
-##### Through WireGuard VPN
-
-```text
-10.0.0.2:25565
-```
-
-Works correctly, but due to the VPS relay tunnel latency is higher than LAN.
-
----
-
-#### Screenshots & Demo
-
-##### LinuxGSM Server Details
-
-![Minecraft Server Details](photos/mcserverDeatils.png)
-
----
-
-##### Live Server Console
-
-![Minecraft Server Console](photos/mcserverConsole.png)
-
----
-
-##### Client Demo
-
-![Minecraft Client Demo](videos/mcserverDemo.mp4)
-
----
-
 
