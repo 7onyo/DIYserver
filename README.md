@@ -46,6 +46,20 @@
   - [Testing Connectivity](#testing-connectivity)
 
 
+- [Backup](#backup)
+  - [BorgBackup](#borgbackup)
+  - [Install BorgBackup](#install-borgbackup)
+  - [Backup Server Configuration](#backup-server-configuration)
+  - [Main Server Configuration](#main-server-configuration)
+  - [Initialize Borg Repository](#initialize-borg-repository)
+  - [Automated Backup Script](#automated-backup-script)
+  - [Running the Backup](#running-the-backup)
+  - [Automated Backups with Cron](#automated-backups-with-cron)
+  - [Backup Strategy](#backup-strategy)
+  - [Security Notes](#security-notes)
+  <!-- - [Screenshots & Demo](#screenshots--demo) -->
+
+
 # DIY Home Server
 
 This repository documents my journey of building and configuring a DIY home server.
@@ -1769,4 +1783,228 @@ without exposing anything publicly.
 
 
 ---
+
+
+
+
+# Backup
+
+This section covers the backup setup used in the homelab environment.
+
+The goal is to maintain a secondary copy of important data from the main server on a separate machine inside the network.
+
+The **HP** acts as the dedicated backup server, while the **ThinkPad** sends encrypted backups using BorgBackup.
+
+---
+
+## BorgBackup
+
+Official website:
+
+https://www.borgbackup.org/
+
+BorgBackup is a powerful backup solution featuring:
+
+- deduplication
+- compression
+- encryption
+- incremental backups
+
+---
+
+## Install BorgBackup
+
+Install on both servers:
+
+```bash
+sudo apt install borgbackup
+````
+
+---
+
+## Backup Server Configuration
+
+Create a dedicated backup user:
+
+```bash
+sudo useradd --system --create-home --shell /bin/bash borguser
+sudo passwd borguser
+```
+
+Switch user:
+
+```bash
+sudo su - borguser
+```
+
+Create backup directory:
+
+```bash
+mkdir -p ~/backups/MainServer
+```
+
+After setup is complete, lock password authentication:
+
+```bash
+sudo passwd -l borguser
+```
+
+This disables password login while still allowing SSH key authentication from the main server.
+
+---
+
+## Main Server Configuration
+
+All commands below are executed as root.
+
+Switch to root:
+
+```bash
+sudo su -
+```
+
+> Some directories require root permissions for proper backup access.
+
+---
+
+### Generate SSH Key
+
+```bash
+ssh-keygen -t ed25519
+```
+
+Copy the public key to the backup server:
+
+```bash
+ssh-copy-id -i ~/.ssh/id_ed25519.pub borguser@192.168.0.109
+```
+
+Test connection:
+
+```bash
+ssh borguser@192.168.0.109
+```
+
+---
+
+## Initialize Borg Repository
+
+```bash
+borg init --encryption=repokey borguser@192.168.0.109:~/backups/MainServer
+```
+
+This creates an encrypted Borg repository on the backup server.
+
+---
+
+## Automated Backup Script
+
+Create backup script:
+
+```bash
+sudo nano /usr/local/bin/borg-backup.sh
+```
+
+Content:
+
+```bash
+#!/bin/bash
+
+export BORG_REPO="borguser@192.168.0.109:~/backups/MainServer"
+export BORG_PASSPHRASE="<YOUR KEY>"
+
+borg create --verbose --stats \
+    ::'{hostname}-{now:%Y-%m-%d_%H:%M}' \
+    /data
+
+borg prune --verbose --list \
+    --keep-daily=7 \
+    --keep-weekly=4 \
+    --keep-monthly=6
+
+borg compact
+```
+
+Make executable:
+
+```bash
+sudo chmod 700 /usr/local/bin/borg-backup.sh
+```
+
+---
+
+## Running the Backup
+
+Manual run:
+
+```bash
+sudo /usr/local/bin/borg-backup.sh
+```
+
+---
+
+## Automated Backups with Cron
+
+Edit root cron jobs:
+
+```bash
+sudo crontab -e
+```
+
+Example daily backup at 03:00 AM:
+
+```cron
+0 3 * * * /usr/local/bin/borg-backup.sh > /dev/null 2>&1
+```
+
+---
+
+## Backup Strategy
+
+Current backup target:
+
+```text
+/data
+```
+
+This includes:
+
+* shared files
+* media
+* service data
+* Docker persistent volumes
+
+The backup server acts as a secondary storage location inside the home network.
+
+---
+
+## Security Notes
+
+* backups are encrypted using Borg's `repokey` encryption
+* SSH password login is disabled for the backup user
+
+
+---
+
+<!-- ## Screenshots & Demo
+
+### Borg Repository
+
+![Borg Repository](photos/)
+
+---
+
+### Backup Process
+
+![Borg Backup](photos/)
+
+---
+
+### Backup Server Storage
+
+![Backup Server Storage](photos/)
+
+--- -->
+
+
 
