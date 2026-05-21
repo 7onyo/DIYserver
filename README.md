@@ -1,4 +1,8 @@
-# Table of Contents
+<!--# Table of Contents-->
+<details open>
+<summary><strong>Table of Contents</strong></summary>
+
+<br>
 
 - [DIY Home Server](#diy-home-server)
 
@@ -59,6 +63,11 @@
   - [Security Notes](#security-notes)
   <!-- - [Screenshots & Demo](#screenshots--demo) -->
 
+<br>
+
+</details>
+
+
 
 # DIY Home Server
 
@@ -68,6 +77,7 @@ I decided to create this server because I had a couple of old laptops that were 
 
 This repo contains the commands, configurations, and notes from the setup process.  
 Later I plan to add explanations, screenshots, and short videos.
+
 
 ---
 
