@@ -1996,25 +1996,25 @@ The backup server acts as a secondary storage location inside the home network.
 
 ---
 
-<!-- ## Screenshots & Demo
+## Screenshots & Demo
 
 ### Borg Repository
 
-![Borg Repository](photos/)
+![Borg Repository](photos/borgRepo.png)
 
 ---
 
-### Backup Process
+### List Backups
 
-![Borg Backup](photos/)
+![List Backups](photos/borgList.png)
 
 ---
 
-### Backup Server Storage
+### Backup Log File
 
-![Backup Server Storage](photos/)
+![Backup Log File](photos/borgLog.png)
 
---- -->
+---
 
 
 
