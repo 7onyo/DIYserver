@@ -61,7 +61,7 @@
   - [Automated Backups with Cron](#automated-backups-with-cron)
   - [Backup Strategy](#backup-strategy)
   - [Security Notes](#security-notes)
-  <!-- - [Screenshots & Demo](#screenshots--demo) -->
+  - [Screenshots](#screenshots) 
 
 <br>
 
@@ -1996,7 +1996,7 @@ The backup server acts as a secondary storage location inside the home network.
 
 ---
 
-## Screenshots & Demo
+## Screenshots
 
 ### Borg Repository
 
