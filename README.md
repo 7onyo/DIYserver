@@ -33,6 +33,7 @@
     - [Storage Permissions](#storage-permissions)
     - [Samba - Network File Sharing (NAS)](#samba---network-file-sharing-nas)
     - [Navidrome - Self-Hosted Music Streaming](#navidrome---self-hosted-music-streaming)
+    - [Obsidian + Syncthing - Notes & Synchronization](#obsidian---browser-hosted-instance)
     - [Lancache - Local Game Download Cache](#lancache---local-game-download-cache)
     - [Minecraft - LAN Server](#minecraft---lan-server)
 
@@ -851,7 +852,47 @@ I currently use the following clients to access Navidrome.
 <p align="center">
   <img src="photos/symfonium.jpg">
 </p>
+
 ---
+
+
+
+### VPN Access
+
+Navidrome can also be accessed remotely through the **WireGuard VPN tunnel**.
+
+This allows me to stream my music library securely from outside my home network without exposing the service publicly to the internet.
+
+---
+
+#### PC Access over VPN
+
+Accessing Navidrome from browser through the VPN tunnel:
+
+![Navidrome VPN PC](photos/navidromeLinuxVpn.png)
+
+---
+
+#### Android Access over VPN
+
+Accessing Navidrome remotely through **Symfonium** on Android:
+
+<p align="center">
+  <img src="photos/navidromeAndroidVpn1.jpg" width="45%">
+  <img src="photos/navidromeAndroidVpn2.jpg" width="45%">
+</p>
+
+---
+
+This keeps the service fully private while still allowing remote streaming from anywhere.
+
+
+
+
+
+
+
+
 
 ### Playlist Import Script
 
@@ -918,6 +959,329 @@ Each generated `.m3u` file contains the `.flac` tracks found inside the matching
 This allows Navidrome to import folder-based playlists automatically.
 
 ---
+
+
+
+
+## Obsidian + Syncthing - Notes & Synchronization
+
+For note-taking and knowledge management, I use **Obsidian** together with **Syncthing**.
+
+Obsidian is essentially my self-hosted equivalent of Notion, but focused on local Markdown files and vaults.
+
+Syncthing handles synchronization across all devices.
+
+This setup gives me two possible workflows:
+
+- **Server-hosted only** → run Obsidian in Docker and access it through the browser
+- **Fully synchronized setup** → use Syncthing so every device can use the native Obsidian app while keeping everything synced
+
+The second option is what I mainly use.
+
+---
+
+### Obsidian - Browser Hosted Instance
+
+Official documentation:
+
+https://docs.linuxserver.io/images/docker-obsidian/
+
+Docker Compose path:
+
+```text
+/srv/docker/obsidian/docker-compose.yml
+````
+
+Docker Compose:
+
+```yaml
+services:
+  obsidian:
+    image: lscr.io/linuxserver/obsidian:latest
+    container_name: obsidian
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Bucharest
+    volumes:
+      - /data/shares/media/notes:/config
+    ports:
+      - 3000:3000
+      - 3001:3001
+    shm_size: "1gb"
+    restart: unless-stopped
+```
+
+Vault storage:
+
+```text
+/data/shares/media/notes
+```
+
+This directory stores all vaults and note data.
+
+Start the container:
+
+```bash
+cd /srv/docker/obsidian
+docker compose up -d
+```
+
+Access in browser:
+
+```text
+https://192.168.0.108:3001
+```
+
+Initial setup:
+
+* create `vaults/`
+* create first vault (`school` in my case)
+
+Screenshot:
+
+![Create Vault](photos/createVault.png)
+
+---
+
+### Syncthing - Cross Device Sync
+
+Official documentation:
+
+[https://docs.linuxserver.io/images/docker-syncthing/](https://docs.linuxserver.io/images/docker-syncthing/)
+
+Docker Compose path:
+
+```text
+/srv/docker/syncthing/docker-compose.yml
+```
+
+Docker Compose:
+
+```yaml
+services:
+  syncthing:
+    image: lscr.io/linuxserver/syncthing:latest
+    container_name: syncthing
+    hostname: syncthing-server
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Bucharest
+    volumes:
+      - /data/services/syncthing:/config
+      - /data/shares/media/notes/vaults:/obsidian
+    ports:
+      - 8384:8384
+      - 22000:22000/tcp
+      - 22000:22000/udp
+      - 21027:21027/udp
+    restart: unless-stopped
+```
+
+Config storage:
+
+```text
+/data/services/syncthing
+```
+
+Shared notes directory:
+
+```text
+/data/shares/media/notes/vaults
+```
+
+Start the container:
+
+```bash
+cd /srv/docker/syncthing
+docker compose up -d
+```
+
+Access dashboard:
+
+```text
+http://192.168.0.108:8384
+```
+
+Create a Syncthing user:
+
+![Create Syncthing User](photos/createSyncthingUser.png)
+
+---
+
+### Adding Devices
+
+On PC / Phone:
+
+Install Syncthing and open the dashboard.
+
+Create a user on the device.
+
+---
+
+On the server:
+
+Show the device ID (string or QR code).
+
+Copy it.
+
+Screenshot:
+
+![Show Device ID](photos/showID.png)
+
+---
+
+On the client:
+
+Paste the server ID and add it.
+
+Screenshot:
+
+![Add Server](photos/addServer.png)
+
+---
+
+Back on the server:
+
+Accept the new device connection.
+
+Screenshot:
+
+![Add Client](photos/addClient.png)
+
+---
+
+### Creating Shared Vault Folder
+
+On the server, create a shared folder inside Syncthing.
+
+Folder path:
+
+```text
+/obsidian
+```
+
+This corresponds to:
+
+```text
+/data/shares/media/notes/vaults
+```
+
+because of the Docker volume mapping.
+
+Screenshot:
+
+![Add Folder](photos/addFolder.png)
+
+---
+
+Share it with the client:
+
+![Share Folder](photos/shareFolder.png)
+
+---
+
+On the client:
+
+Accept the sync request.
+
+Select where the vault should be stored.
+
+In my case:
+
+```text
+/home/onyo/Obsidian/
+```
+
+Screenshot:
+
+![Accept Sync](photos/acceptSync.png)
+
+---
+
+The same exact process applies for mobile devices.
+
+---
+
+### Workflow
+
+After synchronization is complete:
+
+* the server keeps the main vault copy
+* all devices stay synchronized automatically
+* devices can use the native Obsidian app
+* the browser-hosted Obsidian remains available as a fallback
+
+This makes the setup flexible and fully self-hosted.
+
+---
+
+### VPN Access
+
+Both services can also be accessed remotely through the WireGuard tunnel.
+
+Obsidian over VPN:
+
+![Obsidian VPN Access](photos/vpnObsidian.png)
+
+---
+
+Syncthing GUI over VPN:
+
+![Syncthing VPN Access](photos/vpnSyncthing.png)
+
+---
+
+This allows secure remote note access without exposing anything publicly.
+
+---
+
+### Screenshots & Demo
+
+Live synchronization demonstration:
+
+<p align="center">
+  <video src="https://github.com/user-attachments/assets/35001b70-7204-4123-ac98-90d060e8fddd" controls width="80%"></video>
+</p>
+
+---
+
+Demo setup:
+
+Left side:
+
+* server-hosted Obsidian in browser
+* server terminal monitoring file changes:
+
+```bash
+watch -n 1 -d ls -lh /data/shares/media/notes/vaults/school
+```
+
+Right side:
+
+* client native Obsidian app
+* Dolphin file manager:
+
+```text
+/home/onyo/Obsidian
+```
+
+The demo shows:
+
+* editing on client → sync to server
+* editing on server → sync to client
+
+This verifies real-time synchronization across all devices while remaining fully self-hosted.
+
+---
+
+
+
+
+
+
+
 
 ## Lancache - Local Game Download Cache
 
@@ -1131,8 +1495,6 @@ Once the files were cached locally, peak speed increased to around **74 MB/s**.
 > I mainly deployed it as an experiment to test how it works.
 
 ---
-
-
 
 ## Minecraft - LAN Server
 
@@ -1431,7 +1793,9 @@ Works correctly, but due to the VPS relay tunnel latency is higher than LAN.
 
 #### Client Demo
 
-![Minecraft Client Demo](videos/mcserverDemo.mp4)
+<p align="center">
+  <video src="https://github.com/user-attachments/assets/458992b5-eab8-414e-9c02-8c0084472fe4" controls width="80%"></video>
+</p>
 
 
 ---
