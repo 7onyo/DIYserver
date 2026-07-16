@@ -333,9 +333,21 @@ The server can then be powered on remotely using:
 wakeonlan <MAC_ADDRESS>
 ```
 
-<!-- Example WoL demonstration: -->
+### Wake-on-LAN Demonstrations
 
-<!-- ![Wake-on-LAN demo](videos/wol_demo.mp4) -->
+**1. Client-Side Demonstration**
+In this demo, two terminals are used. The first terminal sends the `wakeonlan` magic packet, while the second terminal constantly pings `192.168.0.108` on port 22 to monitor exactly when the server wakes up and becomes available.
+
+<p align="center">
+  <video src="https://github.com/user-attachments/assets/15232e17-7f4a-4819-9ac4-f6d92b9d2264" controls width="80%"></video>
+</p>
+
+**2. Server-Side Demonstration**
+This video shows the server, waking up. You can see the server powering on and spinning up immediately after receiving the magic packet over the network.
+
+<p align="center">
+  <video src="https://github.com/user-attachments/assets/ea7687c7-53ac-463a-96c0-ffcd3ac7365d" controls width="80%"></video>
+</p>
 
 > **Note:** There are multiple ways to configure Wake-on-LAN depending on the system, network interface, and distribution. The reference below includes alternative approaches and troubleshooting information.
 
