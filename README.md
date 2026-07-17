@@ -339,14 +339,16 @@ wakeonlan <MAC_ADDRESS>
 In this demo, two terminals are used. The first terminal sends the `wakeonlan` magic packet, while the second terminal constantly pings `192.168.0.108` on port 22 to monitor exactly when the server wakes up and becomes available.
 
 <p align="center">
-  <video src="https://github.com/user-attachments/assets/15232e17-7f4a-4819-9ac4-f6d92b9d2264" controls width="80%"></video>
+  <!-- <video src="https://github.com/user-attachments/assets/15232e17-7f4a-4819-9ac4-f6d92b9d2264" controls width="80%"></video> -->
+  <video src="https://github.com/user-attachments/assets/3c00bb0f-0bfc-4908-adc6-9615fe64f244" controls width="80%"></video>
 </p>
 
 **2. Server-Side Demonstration**
 This video shows the server, waking up. You can see the server powering on and spinning up immediately after receiving the magic packet over the network.
 
 <p align="center">
-  <video src="https://github.com/user-attachments/assets/ea7687c7-53ac-463a-96c0-ffcd3ac7365d" controls width="80%"></video>
+  <!-- <video src="https://github.com/user-attachments/assets/ea7687c7-53ac-463a-96c0-ffcd3ac7365d" controls width="80%"></video> -->
+  <video src="https://github.com/user-attachments/assets/b4f16e24-4345-4316-8e11-f672fd39291e" controls width="80%"></video>
 </p>
 
 > **Note:** There are multiple ways to configure Wake-on-LAN depending on the system, network interface, and distribution. The reference below includes alternative approaches and troubleshooting information.
@@ -1254,7 +1256,8 @@ This allows secure remote note access without exposing anything publicly.
 Live synchronization demonstration:
 
 <p align="center">
-  <video src="https://github.com/user-attachments/assets/35001b70-7204-4123-ac98-90d060e8fddd" controls width="80%"></video>
+  <video src="https://github.com/user-attachments/assets/eac44338-4bee-4c5c-9c50-6f7a00461feb" controls width="80%"></video>
+  <!-- <video src="https://github.com/user-attachments/assets/35001b70-7204-4123-ac98-90d060e8fddd" controls width="80%"></video> -->
 </p>
 
 ---
@@ -1806,7 +1809,8 @@ Works correctly, but due to the VPS relay tunnel latency is higher than LAN.
 #### Client Demo
 
 <p align="center">
-  <video src="https://github.com/user-attachments/assets/458992b5-eab8-414e-9c02-8c0084472fe4" controls width="80%"></video>
+  <!-- <video src="https://github.com/user-attachments/assets/458992b5-eab8-414e-9c02-8c0084472fe4" controls width="80%"></video> -->
+  <video src="https://github.com/user-attachments/assets/b79b2069-efca-40d8-afd1-a64dda8d893a" controls width="80%"></video>
 </p>
 
 
